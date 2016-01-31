@@ -1,5 +1,3 @@
-// g++ -O3 -o kgb_arch kgb_arch_posix_src.cpp
-
 /*KGB Archiver console version
 ©2005-2006 Tomasz Pawlak, tomekp17@gmail.com, mod by Slawek (poczta-sn@gazeta.pl)
 based on PAQ6 by Matt Mahoney
