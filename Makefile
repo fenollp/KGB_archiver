@@ -8,12 +8,17 @@ all: $(EXE)
 
 $(EXE): $(SRC)
 	$(CXX) $(CXXFLAGS) -o $(EXE) $<
+	$(MAKE) -C . quick-test
 
 debug: $(SRC)
 	$(CXX) $(DEV_CXXFLAGS) -o $(EXE) $<
+	$(MAKE) -C . quick-test
 
 clean:
 	$(if $(wildcard $(EXE)), rm $(EXE))
 
+quick-test: $(EXE)
+	bash -c 'time ./$(EXE) -0 k README.md && time ./$(EXE) k && rm k && exit $$(git status --porcelain -- README.md | wc -l)'
+
 test: $(EXE)
-	bash -c './$(EXE) -0 k *.cc && ./$(EXE) k && rm k && mods=$$(git status --porcelain -- *.cc | wc -l) && exit $$mods'
+	bash -c 'for m in {1..9}; do echo $$m && time ./$(EXE) -$$m k README.md && time ./$(EXE) k && rm k && mods=$$(git status --porcelain -- README.md | wc -l); [[ $$mods -ne 0 ]] && exit $$mods; done'
