@@ -17,8 +17,13 @@ debug: $(SRC)
 clean:
 	$(if $(wildcard $(EXE)), rm $(EXE))
 
-quick-test: $(EXE)
-	bash -c 'time ./$(EXE) -0 k README.md && time ./$(EXE) k && rm k && exit $$(git status --porcelain -- README.md | wc -l)'
 
-test: $(EXE)
-	bash -c 'for m in {1..9}; do echo $$m && time ./$(EXE) -$$m k README.md && time ./$(EXE) k && rm k && mods=$$(git status --porcelain -- README.md | wc -l); [[ $$mods -ne 0 ]] && exit $$mods; done'
+file = README.md
+define quick_test_1
+quick-test-$(1): $(EXE)
+	bash -c 'time ./$(EXE) -$(1) $(file).kgb $(file) && rm $(file) && time ./$(EXE) $(file).kgb && rm $(file).kgb && exit $$(git status --porcelain -- $(file) | wc -l)'
+endef
+$(foreach mem,0 1 2 3 4 5 6 7 8 9,$(eval $(call quick_test_1,$(mem))))
+
+quick-test: quick-test-0
+test: $(patsubst %, quick-test-%, 0 1 2 3 4 5 6 7 8 9)
