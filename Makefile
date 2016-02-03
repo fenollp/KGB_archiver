@@ -1,4 +1,4 @@
-SRC = KGB_arch_posix.cc
+SRC = posix.cc
 EXE = KGB_arch
 
 CXXFLAGS = -O3
