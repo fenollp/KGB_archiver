@@ -7,11 +7,11 @@ DEV_CXXFLAGS = -Wall -Werror -Wextra -pedantic --std=c++0x -g3 -ggdb3
 all: $(EXE)
 
 $(EXE): $(SRC)
-	$(CXX) $(CXXFLAGS) -o $(EXE) $<
+	$(CXX) -DPROGNAME='"$(EXE)"' $(CXXFLAGS) -o $(EXE) $<
 	$(MAKE) -C . quick-test
 
 debug: $(SRC)
-	$(CXX) $(DEV_CXXFLAGS) -o $(EXE) $<
+	$(CXX) -DPROGNAME='"$(EXE)"' $(DEV_CXXFLAGS) -o $(EXE) $<
 	$(MAKE) -C . quick-test
 
 clean:

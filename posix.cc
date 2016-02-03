@@ -5,6 +5,7 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
+#include <cstring> // memset
 #include <new>
 #include <string>
 #include <vector>
@@ -14,7 +15,6 @@
 
 using namespace std;
 
-#define PROGNAME "KGB_arch"  // Please change this if you change the program
 #define PSCALE ((int) 4096)  // Integer scale for representing probabilities
 
 int MEM = 3;        // Use about 6 MB * 2^MEM bytes of memory
