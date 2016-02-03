@@ -1,5 +1,3 @@
-#define PROGNAME "KGB_arch"  // Please change this if you change the program
-
 #define hash ___hash  // To avoid Digital MARS name collision
 #include <cstdio>
 #include <cstdlib>
@@ -13,12 +11,15 @@
 #include <algorithm>
 #include <map>
 #undef hash
+
 using namespace std;
 
-const int PSCALE=4096;  // Integer scale for representing probabilities
-int MEM=3;        // Use about 6 MB * 2^MEM bytes of memory
+#define PROGNAME "KGB_arch"  // Please change this if you change the program
+#define PSCALE ((int) 4096)  // Integer scale for representing probabilities
 
-template <class T> inline int size(const T& t) {return t.size();}
+int MEM = 3;        // Use about 6 MB * 2^MEM bytes of memory
+
+template <class T> inline int size (const T& t) { return t.size(); }
 
 // 8-32 bit unsigned types, adjust as appropriate
 typedef unsigned char U8;
@@ -26,9 +27,10 @@ typedef unsigned short U16;
 typedef unsigned int U32;
 
 // Fail if out of memory
-void handler() {
-  printf("Out of memory\n");
-  exit(1);
+void
+handler () {
+    printf("Out of memory\n");
+    exit(1);
 }
 
 // A ProgramChecker verifies some environmental assumptions and sets the
@@ -37,19 +39,19 @@ void handler() {
 // other global objects.
 
 class ProgramChecker {
-  clock_t start;
+    clock_t start;
 public:
-  ProgramChecker() {
-    start=clock();
-    set_new_handler(handler);
+    ProgramChecker () {
+        start = clock();
+        set_new_handler(handler);
 
-    // Test the compiler for common but not guaranteed assumptions
-    assert(sizeof(U8)==1);
-    assert(sizeof(U16)==2);
-    assert(sizeof(U32)==4);
-    assert(sizeof(int)==4);
-  }
-  clock_t start_time() const {return start;}  // When the program started
+        // Test the compiler for common but not guaranteed assumptions
+        assert(sizeof (U8) == 1);
+        assert(sizeof (U16) == 2);
+        assert(sizeof (U32) == 4);
+        assert(sizeof (int) == 4);
+    }
+    clock_t start_time () const { return start; }  // When the program started
 } programChecker;
 
 //////////////////////////// rnd ////////////////////////////
@@ -57,22 +59,27 @@ public:
 // 32-bit random number generator based on r(i) = r(i-24) ^ r(i-55)
 
 class Random {
-  U32 table[55];  // Last 55 random values
-  int i;  // Index of current random value in table
+    U32 table[55];  // Last 55 random values
+    int i;  // Index of current random value in table
 public:
-  Random();
-  U32 operator()() {  // Return 32-bit random number
-    if (++i==55) i=0;
-    if (i>=24) return table[i]^=table[i-24];
-    else return table[i]^=table[i+31];
-  }
+    Random ();
+    U32 operator() () {  // Return 32-bit random number
+        if (++i == 55)
+            i = 0;
+        if (i >= 24)
+            return table[i] ^= table[i - 24];
+        else
+            return table[i] ^= table[i + 31];
+    }
 } rnd;
 
-Random::Random(): i(0) {  // Seed the table
-  table[0]=123456789;
-  table[1]=987654321;
-  for (int j=2; j<55; ++j)
-    table[j]=table[j-1]*11+table[j-2]*19/16;
+Random::Random ()  // Seed the table
+    : i(0)
+{
+  table[0] = 123456789;
+  table[1] = 987654321;
+  for (int j = 2; j < 55; ++j)
+      table[j] = table[j - 1] * 11 + table[j - 2] * 19 / 16;
 }
 
 //////////////////////////// hash ////////////////////////////
@@ -80,26 +87,26 @@ Random::Random(): i(0) {  // Seed the table
 // Hash functoid, returns 32 bit hash of 1-4 chars
 
 class Hash {
-  U32 table[8][256];  // Random number table
+    U32 table[8][256];  // Random number table
 public:
-  Hash() {
-    for (int i=7; i>=0; --i)
-      for (int j=0; j<256; ++j)
-        table[i][j]=rnd();
-    assert(table[0][255]==3610026313LU);
-  }
-  U32 operator()(U8 i0) const {
-    return table[0][i0];
-  }
-  U32 operator()(U8 i0, U8 i1) const {
-    return table[0][i0]+table[1][i1];
-  }
-  U32 operator()(U8 i0, U8 i1, U8 i2) const {
-    return table[0][i0]+table[1][i1]+table[2][i2];
-  }
-  U32 operator()(U8 i0, U8 i1, U8 i2, U8 i3) const {
-    return table[0][i0]+table[1][i1]+table[2][i2]+table[3][i3];
-  }
+    Hash () {
+        for (int i = 7; i >= 0; --i)
+            for (int j = 0; j < 256; ++j)
+                table[i][j] = rnd();
+        assert(table[0][255] == 3610026313LU);
+    }
+    U32 operator() (U8 i0) const {
+        return table[0][i0];
+    }
+    U32 operator() (U8 i0, U8 i1) const {
+        return table[0][i0] + table[1][i1];
+    }
+    U32 operator() (U8 i0, U8 i1, U8 i2) const {
+        return table[0][i0] + table[1][i1] + table[2][i2];
+    }
+    U32 operator() (U8 i0, U8 i1, U8 i2, U8 i3) const {
+        return table[0][i0] + table[1][i1] + table[2][i2] + table[3][i3];
+    }
 } hash;
 
 //////////////////////////// Counter ////////////////////////////
@@ -115,33 +122,33 @@ in a context.
 */
 
 class Counter {
-  U8 state;
-  struct E {      // State table entry
-    U16 n0, n1;   // get0(), get1()
-    U8 s00, s01;  // Next state on input 0 without/with probabilistic incr.
-    U8 s10, s11;  // Next state on input 1
-    U32 p0, p1;   // Probability of increment x 2^32 on inputs 0, 1
-  };
-  static E table[];  // State table
+    U8 state;
+    struct E {      // State table entry
+        U16 n0, n1;   // get0(), get1()
+        U8 s00, s01;  // Next state on input 0 without/with probabilistic incr.
+        U8 s10, s11;  // Next state on input 1
+        U32 p0, p1;   // Probability of increment x 2^32 on inputs 0, 1
+    };
+    static E table[];  // State table
 public:
-  Counter(): state(0) {}
-  int get0() const {return table[state].n0;}
-  int get1() const {return table[state].n1;}
-  int priority() const {return get0()+get1();}
-  void add(int y) {
-    if (y) {
-      if (state<208 || rnd()<table[state].p1)
-        state=table[state].s11;
-      else
-        state=table[state].s10;
+    Counter (): state(0) {}
+    int get0 () const { return table[state].n0; }
+    int get1 () const { return table[state].n1; }
+    int priority () const { return get0() + get1(); }
+    void add (int y) {
+        if (y) {
+            if (state < 208 || rnd() < table[state].p1)
+                state = table[state].s11;
+            else
+                state = table[state].s10;
+        }
+        else {
+            if (state < 208 || rnd() < table[state].p0)
+                state = table[state].s01;
+            else
+                state = table[state].s00;
+        }
     }
-    else {
-      if (state<208 || rnd()<table[state].p0)
-        state=table[state].s01;
-      else
-        state=table[state].s00;
-    }
-  }
 };
 
 // State table generated by stgen6.cpp
@@ -425,48 +432,50 @@ It stores all the input so far in a rotating buffer of the last N bytes
   ch.pos(c, i) -- Position of the i'th to last occurrence, i = 0 to 3
 */
 class Ch {
-  U32 N;  // Buffer size
-  U8 *buf;  // [N] last N bytes
-  U32 p;  // pos()
-  U32 bp;  // bpos()
-  U32 hi_nibble, lo_nibble;  // hi(), lo()
-  U32 lpos[256][4];  // pos(c, i)
+    U32 N;  // Buffer size
+    U8 *buf;  // [N] last N bytes
+    U32 p;  // pos()
+    U32 bp;  // bpos()
+    U32 hi_nibble, lo_nibble;  // hi(), lo()
+    U32 lpos[256][4];  // pos(c, i)
 public:
-  Ch(): N(0), buf(0), p(0), bp(0), hi_nibble(0), lo_nibble(1) {
-    memset(lpos, 0, 256*4*sizeof(U32));
-  }
-  void init() {
-    N = 1 << 19+MEM-(MEM>=6);
-    buf=(U8*)calloc(N, 1);
-    if (!buf)
-      handler();
-    buf[0]=1;
-  }
-  U32 operator()(int i) const {return buf[(p-i)&(N-1)];}
-  U32 operator()() const {return buf[p&(N-1)];}
-  void update(int y) {
-    U8& r=buf[p&(N-1)];
-    r+=r+y;
-    if (++bp==8) {
-      lpos[r][3]=lpos[r][2];
-      lpos[r][2]=lpos[r][1];
-      lpos[r][1]=lpos[r][0];
-      lpos[r][0]=p;
-      bp=0;
-      ++p;
-      buf[p&(N-1)]=1;
+    Ch (): N(0), buf(0), p(0), bp(0), hi_nibble(0), lo_nibble(1) {
+        memset(lpos, 0, 256 * 4 * sizeof (U32));
     }
-    if ((lo_nibble+=lo_nibble+y)>=16) {
-      hi_nibble=lo_nibble-16;
-      lo_nibble=1;
+    void
+    init () {
+        N = 1 << 19 + MEM - (MEM >= 6);
+        buf = (U8*) calloc(N, 1);
+        if (!buf)
+            handler();
+        buf[0] = 1;
     }
-  }
-  U32 pos() const {return p;}
-  U32 pos(U8 c, int i=0) const {return lpos[c][i&3];}
-  U32 bpos() const {return bp;}
-  U32 operator[](int i) const {return buf[i&(N-1)];}
-  U32 hi() const {return hi_nibble;}
-  U32 lo() const {return lo_nibble;}
+    U32 operator() (int i) const { return buf[(p - i) & (N - 1)]; }
+    U32 operator() () const { return buf[p & (N - 1)]; }
+    void
+    update (int y) {
+        U8& r = buf[p & (N - 1)];
+        r += r + y;
+        if (++bp == 8) {
+            lpos[r][3] = lpos[r][2];
+            lpos[r][2] = lpos[r][1];
+            lpos[r][1] = lpos[r][0];
+            lpos[r][0] = p;
+            bp = 0;
+            ++p;
+            buf[p & (N - 1)] = 1;
+        }
+        if ((lo_nibble += lo_nibble + y) >= 16) {
+            hi_nibble = lo_nibble - 16;
+            lo_nibble = 1;
+        }
+    }
+    U32 pos () const { return p; }
+    U32 pos (U8 c, int i = 0) const { return lpos[c][i & 3]; }
+    U32 bpos () const { return bp; }
+    U32 operator[] (int i) const { return buf[i & (N - 1)]; }
+    U32 hi () const { return hi_nibble; }
+    U32 lo () const { return lo_nibble; }
 } ch;  // Global object
 
 //////////////////////////// Hashtable ////////////////////////////
@@ -490,78 +499,83 @@ Normally there should be 4 calls to ht(c) after each ht.set(h).
 template<class T>
 class Hashtable {
 private:
-  const U32 N;  // log2 size in bytes
-  struct HashElement {
-    U8 checksum;  // Checksum of context, used to detect collisions
-    T c[15];  // 1-byte counters in minor context c
-    HashElement(): checksum(0) {}
-  };
-  HashElement *table;  // [2^(N-4)]
-  U32 cxt;  // major context
+    const U32 N;  // log2 size in bytes
+    struct HashElement {
+        U8 checksum;  // Checksum of context, used to detect collisions
+        T c[15];  // 1-byte counters in minor context c
+        HashElement (): checksum(0) {}
+    };
+    HashElement *table;  // [2^(N-4)]
+    U32 cxt;  // major context
 public:
-  Hashtable(U32 n);
+    Hashtable (U32 n);
 
   // Set major context to h, a 32 bit hash.  Create a new element if needed.
-  void set(U32 h) {
+    void
+    set (U32 h) {
 
     // Search 4 elements for h within a 64-byte cache line
-    const U8 checksum=(h>>24)^h;
-    const U32 lo= (h>>(32-N)) & -4;
-    const U32 hi=lo+4;
-    U32 i;
-    for (i=lo; i<hi; ++i) {
-      U32 pri=table[i].c[0].priority();
-      if (table[i].checksum==checksum) { // found
-        cxt=i;
-        break;
-      }
-      else if (pri==0) {  // empty bucket
-        table[i].checksum=checksum;
-        cxt=i;
-        break;
-      }
+        const U8 checksum = (h >> 24) ^ h;
+        const U32 lo = (h >> (32 - N)) & -4;
+        const U32 hi = lo + 4;
+        U32 i;
+        for (i = lo; i < hi; ++i) {
+            U32 pri = table[i].c[0].priority();
+            if (table[i].checksum == checksum) { // found
+                cxt = i;
+                break;
+            }
+            else if (pri == 0) {  // empty bucket
+                table[i].checksum = checksum;
+                cxt = i;
+                break;
+            }
+        }
+
+        // Put new element in front, pushing the lower priority of the two
+        // oldest off the back
+        if (i == hi) {
+            cxt = lo;
+            if (table[lo + 2].c[0].priority() <
+                table[lo + 3].c[0].priority())
+                memmove(table + lo + 1, table + lo, 32);
+            else
+                memmove(table + lo + 1, table + lo, 48);
+            memset(table + lo, 0, 16);
+            table[cxt].checksum = checksum;
+        }
+
+        // Move newest to front
+        else if (cxt != lo) {
+            HashElement he = table[cxt];
+            memmove(table + lo + 1, table + lo, (cxt - lo) * 16);
+            table[lo] = he;
+            cxt = lo;
+        }
     }
 
-    // Put new element in front, pushing the lower priority of the two
-    // oldest off the back
-    if (i==hi) {
-      cxt=lo;
-      if (table[lo+2].c[0].priority()<table[lo+3].c[0].priority())
-        memmove(table+lo+1, table+lo, 32);
-      else
-        memmove(table+lo+1, table+lo, 48);
-      memset(table+lo, 0, 16);
-      table[cxt].checksum=checksum;
+    // Get element c (1-15) of bucket cxt
+    T&
+    operator() (U32 c) {
+        --c;
+        assert(c < 15);
+        return table[cxt].c[c];
     }
-
-    // Move newest to front
-    else if (cxt!=lo) {
-      HashElement he=table[cxt];
-      memmove(table+lo+1, table+lo, (cxt-lo)*16);
-      table[lo]=he;
-      cxt=lo;
-    }
-  }
-
-  // Get element c (1-15) of bucket cxt
-  T& operator()(U32 c) {
-    --c;
-    assert(c<15);
-    return table[cxt].c[c];
-  }
 };
 
 template <class T>
-Hashtable<T>::Hashtable(U32 n): N(n>4?n-4:1), table(0), cxt(0) {
-  assert(sizeof(HashElement)==16);
-  assert(sizeof(char)==1);
+Hashtable<T>::Hashtable (U32 n)
+    : N(n > 4 ? n - 4 : 1), table(0), cxt(0)
+{
+    assert(sizeof (HashElement) == 16);
+    assert(sizeof (char) == 1);
 
-  // Align the hash table on a 64 byte cache page boundary
-  char *p=(char*)calloc((16<<N)+64, 1);
-  if (!p)
-    handler();
-  p+=64-(((long)p)&63);  // Aligned
-  table=(HashElement*)p;
+    // Align the hash table on a 64 byte cache page boundary
+    char* p = (char*) calloc((16 << N) + 64, 1);
+    if (!p)
+        handler();
+    p += 64 - (((long) p) & 63);  // Aligned
+    table = (HashElement*) p;
 }
 
 //////////////////////////// mixer ////////////////////////////
@@ -582,137 +596,151 @@ Hashtable<T>::Hashtable(U32 n): N(n>4?n-4:1), table(0), cxt(0) {
                       y = 0 or 1.
 */
 class Mixer {
-  enum {N=64};  // Max writes before update
-  const int C;
-  U32 *bc0, *bc1;  // 0,1 counts for N models
-  U32 (*wt)[N];  // wt[c][n] is n'th weight in context c
-  int n;  // number of bit count pairs written
-  int c;  // weight set context
+    enum {N = 64};  // Max writes before update
+    const int C;
+    U32 *bc0, *bc1;  // 0,1 counts for N models
+    U32 (*wt)[N];  // wt[c][n] is n'th weight in context c
+    int n;  // number of bit count pairs written
+    int c;  // weight set context
 public:
-  Mixer(int C_);
-  ~Mixer();
-  U32 getN() const {return N;}
-  U32 getC() const {return C;}
+    Mixer (int C_);
+    ~Mixer ();
+    U32 getN () const { return N; }
+    U32 getC () const { return C; }
 
-  // Store next counts n0, n1 from model
-  void write(int n0, int n1) {
-    bc0[n]=n0;
-    bc1[n]=n1;
-    ++n;
-  }
+    // Store next counts n0, n1 from model
+    void
+    write (int n0, int n1) {
+        bc0[n] = n0;
+        bc1[n] = n1;
+        ++n;
+    }
 
-  // Add to the last write
-  void add(int n0, int n1) {
-    bc0[n-1]+=n0;
-    bc1[n-1]+=n1;
-  }
-  int predict(int c_);
-  void update(int y);
+    // Add to the last write
+    void
+    add (int n0, int n1) {
+        bc0[n - 1] += n0;
+        bc1[n - 1] += n1;
+    }
+    int predict (int c_);
+    void update (int y);
 };
 
 // Return weighted average of models in context c_
-int Mixer::predict(int c_) {
-  assert(n>0 && n<=N);
-  assert(c_>=0 && c_<C);
-  c=c_;
-  int n0=1, n1=n0;
-  for (int j=0; j<n; ++j) {
-    U32 w=wt[c][j];
-    n0+=bc0[j]*w;
-    n1+=bc1[j]*w;
-  }
-  int sum=n0+n1;
-  while (sum>2000000000/PSCALE) sum/=4, n1/=4;
-  assert(sum>0);
-  return (PSCALE-1)*n1/sum;
+int
+Mixer::predict (int c_) {
+    assert(n > 0 && n <= N);
+    assert(c_ >= 0 && c_ < C);
+    c = c_;
+    int n0 = 1, n1 = n0;
+    for (int j = 0; j < n; ++j) {
+        U32 w = wt[c][j];
+        n0 += bc0[j] * w;
+        n1 += bc1[j] * w;
+    }
+    int sum = n0 + n1;
+    while (sum > 2000000000 / PSCALE) {
+        sum /= 4;
+        n1 /= 4;
+    }
+    assert(sum > 0);
+    return (PSCALE - 1) * n1 / sum;
 }
 
 // Adjust the weights by gradient descent to reduce cost of bit y
-void Mixer::update(int y) {
-  U32 s0=0, s1=0;
-  for (int i=0; i<n; ++i) {
-    s0+=(wt[c][i]+48)*bc0[i];
-    s1+=(wt[c][i]+48)*bc1[i];
-  }
-  if (s0>0 && s1>0) {
-    const U32 s=s0+s1;
-    const U32 sy=y?s1:s0;
-    const U32 sy1=0xffffffff/sy+(rnd()&1023) >> 10;
-    const U32 s1 =0xffffffff/s +(rnd()&1023) >> 10;
-    for (int i=0; i<n; ++i) {
-      const int dw=int((y?bc1[i]:bc0[i])*sy1-(bc0[i]+bc1[i])*s1
-         + (rnd()&255)) >> 8;
-      wt[c][i]=min(65535, max(1, int(wt[c][i]+dw)));
+void
+Mixer::update (int y) {
+    U32 s0 = 0, s1 = 0;
+    for (int i = 0; i < n; ++i) {
+        s0 += (wt[c][i] + 48) * bc0[i];
+        s1 += (wt[c][i] + 48) * bc1[i];
     }
-  }
-  n=0;
+    if (s0 > 0 && s1 > 0) {
+        const U32 s = s0 + s1;
+        const U32 sy = y ? s1 : s0;
+        const U32 sy1 = 0xffffffff / sy + (rnd() & 1023) >> 10;
+        const U32 s1 = 0xffffffff / s +(rnd() & 1023) >> 10;
+        for (int i = 0; i < n; ++i) {
+            const int dw = int((y ? bc1[i] : bc0[i]) * sy1
+                               - (bc0[i] + bc1[i]) * s1
+                               + (rnd() & 255)) >> 8;
+            wt[c][i] = min(65535, max(1, int(wt[c][i] + dw)));
+        }
+    }
+    n = 0;
 }
 
-Mixer::Mixer(int C_): C(C_), bc0(new U32[N]), bc1(new U32[N]),
-                      wt(new U32[C_][N]), n(0), c(0) {
-  for (int i=0; i<C; ++i) {
-    for (int j=0; j<N; ++j)
-      wt[i][j]=1;
-  }
-  for (int i=0; i<N; ++i)
-    bc0[i]=bc1[i]=0;
+Mixer::Mixer (int C_)
+    : C(C_), bc0(new U32[N]), bc1(new U32[N]), wt(new U32[C_][N]), n(0), c(0)
+{
+    for (int i = 0; i < C; ++i) {
+        for (int j = 0; j < N; ++j)
+            wt[i][j] = 1;
+    }
+    for (int i = 0; i < N; ++i)
+        bc0[i] = bc1[i] = 0;
 }
 
-Mixer::~Mixer() {
-/*
-  // Uncomment this to print the weights.  This is useful for testing
-  // new models or weight vector contexts.
-  if (n==0)
-    return;
-  printf("  ");
-  for (int i=0; i<n; ++i)
-    printf("%4d", i);
-  printf("\n");
-  fflush(stdout);
-  for (int i=0; i<C && i<16; ++i) {
-    printf("%2d", i);
-    for (int j=0; j<n; ++j)
-      printf("%4d", wt[i][j]/10);
+Mixer::~Mixer () {
+    // Uncomment this to print the weights. This is useful for testing
+    // new models or weight vector contexts.
+#if 0
+    if (n == 0)
+        return;
+    printf("  ");
+    for (int i = 0; i < n; ++i)
+        printf("%4d", i);
     printf("\n");
     fflush(stdout);
-  } */
+    for (int i = 0; i < C && i < 16; ++i) {
+        printf("%2d", i);
+        for (int j = 0; j < n; ++j)
+            printf("%4d", wt[i][j] / 10);
+        printf("\n");
+        fflush(stdout);
+    }
+#endif
 }
 
 // A MultiMixer averages the output of 2 mixers using different contexts
 class MultiMixer {
-  enum {MINMEM=5};  // Lowest MEM to use 2 mixers
-  Mixer m1, m2;
+    enum {MINMEM = 5};  // Lowest MEM to use 2 mixers
+    Mixer m1, m2;
 public:
-  MultiMixer(): m1(16), m2(16) {}
-  void write(int n0, int n1) {
-    m1.write(n0, n1);
-    if (MEM>=MINMEM)
-      m2.write(n0, n1);
-  }
-  void add(int n0, int n1) {
-    if (MEM>=MINMEM) {
-      m1.add(n0, n1);
-      m2.add(n0, n1);
+    MultiMixer (): m1(16), m2(16) {}
+    void
+    write (int n0, int n1) {
+        m1.write(n0, n1);
+        if (MEM >= MINMEM)
+            m2.write(n0, n1);
     }
-    else
-      m1.add(n0, n1);
-  }
-  int predict() {
-    U32 p1=m1.predict((ch(1) >> 5) + 8*(ch.pos(0, 3) < ch.pos(32, 3)));
-    if (MEM>=MINMEM) {
-      U32 p2=m2.predict((ch(1) >> 6)+4*(ch(2) >> 6));
-      return (p1+p2)/2;
+    void
+    add (int n0, int n1) {
+        if (MEM >= MINMEM) {
+            m1.add(n0, n1);
+            m2.add(n0, n1);
+        }
+        else
+            m1.add(n0, n1);
     }
-    else
-      return p1;
-  }
-  void update(int y) {
-    m1.update(y);
-      if (MEM>=MINMEM)
-    m2.update(y);
-  }
-  U32 getC() const {return 256;}
-  U32 getN() const {return m1.getN();}
+    int
+    predict () {
+        U32 p1 = m1.predict((ch(1) >> 5) + 8 * (ch.pos(0, 3) < ch.pos(32, 3)));
+        if (MEM >= MINMEM) {
+            U32 p2 = m2.predict((ch(1) >> 6) + 4 * (ch(2) >> 6));
+            return (p1 + p2) / 2;
+        }
+        else
+            return p1;
+    }
+    void
+    update (int y) {
+        m1.update(y);
+        if (MEM >= MINMEM)
+            m2.update(y);
+    }
+    U32 getC () const { return 256; }
+    U32 getN () const {return m1.getN(); }
 };
 
 MultiMixer mixer;
@@ -733,122 +761,133 @@ of bytes are read. */
 // Stores only the most recent byte and its count per context (run length)
 // in a hash table without collision detection
 class CounterMap1 {
-  const int N;
-  struct S {
-    U8 c;  // char
-    U8 n;  // count
-  };
-  S* t;  // cxt -> c repeated last n times
-  U32 cxt;
+    const int N;
+    struct S {
+        U8 c;  // char
+        U8 n;  // count
+    };
+    S* t;  // cxt -> c repeated last n times
+    U32 cxt;
 public:
-  CounterMap1(int n): N(n>1?n-1:1), cxt(0) {
-    assert(sizeof(S)==2);
-    t=(S*)calloc(1<<N, 2);
-    if (!t)
-      handler();
-  }
-  void update(U32 h) {
-    if (ch.bpos()==0) {
-      if (t[cxt].n==0) {
-        t[cxt].n=1;
-        t[cxt].c=ch(1);
-      }
-      else if (U32(t[cxt].c)==ch(1)) {
-        if (t[cxt].n<255)
-          ++t[cxt].n;
-      }
-      else {
-        t[cxt].c=ch(1);
-        t[cxt].n=1;
-      }
+    CounterMap1 (int n)
+        : N(n > 1 ? n - 1 : 1), cxt(0)
+        {
+        assert(sizeof (S) == 2);
+        t = (S*) calloc(1 << N, 2);
+        if (!t)
+            handler();
+        }
+    void
+    update (U32 h) {
+        if (ch.bpos() == 0) {
+            if (t[cxt].n == 0) {
+                t[cxt].n = 1;
+                t[cxt].c = ch(1);
+            }
+            else if ((U32)(t[cxt].c) == ch(1)) {
+                if (t[cxt].n < 255)
+                    ++t[cxt].n;
+            }
+            else {
+                t[cxt].c = ch(1);
+                t[cxt].n = 1;
+            }
+        }
+        cxt = h >> 32 - N;
     }
-    cxt = h >> 32-N;
-  }
-  void add() {
-    if ((U32)((t[cxt].c+256) >> 8-ch.bpos())==ch()) {
-      if ((t[cxt].c >> 7-ch.bpos()) & 1)
-        mixer.add(0, t[cxt].n);
-      else
-        mixer.add(t[cxt].n, 0);
+    void
+    add () {
+        if ((U32) ((t[cxt].c + 256) >> 8 - ch.bpos()) == ch()) {
+            if ((t[cxt].c >> 7 - ch.bpos()) & 1)
+                mixer.add(0, t[cxt].n);
+            else
+                mixer.add(t[cxt].n, 0);
+        }
     }
-  }
-  void write() {
-    mixer.write(0, 0);
-    add();
-  }
+    void
+    write () {
+        mixer.write(0, 0);
+        add();
+    }
 };
 
 // Uses a nibble-oriented hash table of contexts (counter state)
 class CounterMap2 {
 private:
-  const U32 N2;  // Size of ht2 in elements
-  U32 cxt;  // Major context
-  Hashtable<Counter> ht2;  // Secondary hash table
-  Counter* cp[8];  // Pointers into ht2 or 0 if not used
+    const U32 N2;  // Size of ht2 in elements
+    U32 cxt;  // Major context
+    Hashtable<Counter> ht2;  // Secondary hash table
+    Counter* cp[8];  // Pointers into ht2 or 0 if not used
 public:
-  CounterMap2(int n);  // Use 2^n bytes memory
-  void add();
-  void update(U32 h);
-  void write() {
-    mixer.write(0, 0);
-    add();
-  }
+    CounterMap2 (int n);  // Use 2^n bytes memory
+    void add ();
+    void update (U32 h);
+    void
+    write () {
+        mixer.write(0, 0);
+        add();
+    }
 };
 
-CounterMap2::CounterMap2(int n): N2(n), cxt(0), ht2(N2) {
-  for (int i=0; i<8; ++i)
-    cp[i]=0;
+CounterMap2::CounterMap2 (int n): N2(n), cxt(0), ht2(N2) {
+    for (int i = 0; i < 8; ++i)
+        cp[i] = 0;
 }
 
 // Predict the next bit given the bits so far in ch()
-void CounterMap2::add() {
-  const U32 bcount = ch.bpos();
-  if (bcount==4) {
-    cxt^=hash(ch.hi(), cxt);
-    ht2.set(cxt);
-  }
-  cp[bcount]=&ht2(ch.lo());
-  mixer.add(cp[bcount]->get0(), cp[bcount]->get1());
+void
+CounterMap2::add () {
+    const U32 bcount = ch.bpos();
+    if (bcount == 4) {
+        cxt ^= hash(ch.hi(), cxt);
+        ht2.set(cxt);
+    }
+    cp[bcount] = &ht2(ch.lo());
+    mixer.add(cp[bcount]->get0(), cp[bcount]->get1());
 }
 
 // After 8 predictions, update the models with the last input char, ch(1),
 // then set the new context hash to h
-void CounterMap2::update(U32 h) {
-  const U32 c=ch(1);
+void
+CounterMap2::update (U32 h) {
+    const U32 c = ch(1);
 
-  // Update the secondary context
-  for (int i=0; i<8; ++i) {
-    if (cp[i]) {
-      cp[i]->add((c>>(7-i))&1);
-      cp[i]=0;
+    // Update the secondary context
+    for (int i = 0; i < 8; ++i) {
+        if (cp[i]) {
+            cp[i]->add((c >> (7 - i)) & 1);
+            cp[i] = 0;
+        }
     }
-  }
-  cxt=h;
-  ht2.set(cxt);
+    cxt = h;
+    ht2.set(cxt);
 }
 
 // Combines 1 and 2 above.
 class CounterMap3 {
-  enum {MINMEM=5};  // Smallest MEM to use cm1
-  CounterMap1 cm1;
-  CounterMap2 cm2;
+    enum {MINMEM = 5};  // Smallest MEM to use cm1
+    CounterMap1 cm1;
+    CounterMap2 cm2;
 public:
-  CounterMap3(int n): cm1(MEM>=MINMEM ? n-2 : 0), cm2(n) {}
-  void update(U32 h) {
-    if (MEM>=MINMEM)
-      cm1.update(h);
-    cm2.update(h);
-  }
-  void write() {
-    cm2.write();
-    if (MEM>=MINMEM)
-      cm1.add();
-  }
-  void add() {
-    cm2.add();
-    if (MEM>=MINMEM)
-      cm1.add();
-  }
+    CounterMap3 (int n): cm1(MEM >= MINMEM ? n - 2 : 0), cm2(n) {}
+    void
+    update (U32 h) {
+        if (MEM >= MINMEM)
+            cm1.update(h);
+        cm2.update(h);
+    }
+    void
+    write () {
+        cm2.write();
+        if (MEM >= MINMEM)
+            cm1.add();
+    }
+    void
+    add () {
+        cm2.add();
+        if (MEM >= MINMEM)
+            cm1.add();
+    }
 };
 
 #define CounterMap CounterMap3
@@ -860,8 +899,8 @@ public:
 // bit into mixer.
 class Model {
 public:
-  virtual void model() = 0;
-  virtual ~Model() {}
+    virtual void model () = 0;
+    virtual ~Model () {}
 };
 
 //////////////////////////// defaultModel ////////////////////////////
@@ -870,7 +909,7 @@ public:
 
 class DefaultModel: public Model {
 public:
-  void model() {mixer.write(1, 1);}
+    void model () { mixer.write(1, 1); }
 };
 
 //////////////////////////// charModel ////////////////////////////
@@ -878,72 +917,77 @@ public:
 // A CharModel contains n-gram models from 0 to 9
 
 class CharModel: public Model {
-  enum {N=10};        // Number of models
-  Counter *t0, *t1;   // Model orders 0, 1 [256], [65536]
-  CounterMap t2, t3, t4, t5, t6, t7, t8, t9;  // Model orders 2-9
-  U32 *cxt;           // Context hashes [N]
-  Counter *cp0, *cp1; // Pointers to counters in t0, t1
+    enum {N = 10};        // Number of models
+    Counter *t0, *t1;   // Model orders 0, 1 [256], [65536]
+    CounterMap t2, t3, t4, t5, t6, t7, t8, t9;  // Model orders 2-9
+    U32 *cxt;           // Context hashes [N]
+    Counter *cp0, *cp1; // Pointers to counters in t0, t1
 public:
-  CharModel(): t0(new Counter[256]), t1(new Counter[65536]),
-               t2(MEM+15), t3(MEM+17), t4(MEM+18), t5((MEM>=1)*(MEM+18)),
-               t6((MEM>=3)*(MEM+18)), t7((MEM>=3)*(MEM+18)),
-               t8((MEM>=5)*(MEM+18-(MEM>=6))),
-               t9((MEM>=5)*(MEM+18-(MEM>=6))),
-               cxt(new U32[N]) {
-    cp0=&t0[0];
-    cp1=&t1[0];
-    memset(cxt, 0, N*sizeof(U32));
-    memset(t0, 0, 256*sizeof(Counter));
-    memset(t1, 0, 65536*sizeof(Counter));
-  }
-  void model();         // Update and predict
+    CharModel (): t0(new Counter[256]), t1(new Counter[65536]),
+                  t2(MEM + 15), t3(MEM + 17), t4(MEM + 18),
+                  t5((MEM >= 1) * (MEM + 18)),
+                  t6((MEM >= 3) * (MEM + 18)),
+                  t7((MEM >= 3) * (MEM + 18)),
+                  t8((MEM >= 5) * (MEM + 18 - (MEM >= 6))),
+                  t9((MEM >= 5) * (MEM + 18 - (MEM >= 6))),
+                  cxt(new U32[N])
+        {
+        cp0 = &t0[0];
+        cp1 = &t1[0];
+        memset(cxt, 0, N * sizeof (U32));
+        memset(t0, 0, 256 * sizeof (Counter));
+        memset(t1, 0, 65536 * sizeof (Counter));
+        }
+    void model ();         // Update and predict
 };
 
 // Update with bit y, put array of 0 counts in n0 and 1 counts in n1
-inline void CharModel::model() {
+inline
+void
+CharModel::model () {
 
-  // Update models
-  int y = ch(ch.bpos()==0)&1;  // last input bit
-  cp0->add(y);
-  cp1->add(y);
+    // Update models
+    int y = ch(ch.bpos() == 0) & 1;  // last input bit
+    cp0->add(y);
+    cp1->add(y);
 
-  // Update context
-  if (ch.bpos()==0) {  // Start new byte
-    for (int i=N-1; i>0; --i)
-      cxt[i]=cxt[i-1]^hash(ch(1), i);
-    t2.update(cxt[2]);
-    t3.update(cxt[3]);
-    t4.update(cxt[4]);
-    if (MEM>=1)
-      t5.update(cxt[5]);
-    if (MEM>=3) {
-      t6.update(cxt[6]);
-      t7.update(cxt[7]);
+    // Update context
+    if (ch.bpos() == 0) {  // Start new byte
+        for (int i = N - 1; i > 0; --i)
+            cxt[i] = cxt[i - 1] ^ hash(ch(1), i);
+        t2.update(cxt[2]);
+        t3.update(cxt[3]);
+        t4.update(cxt[4]);
+        if (MEM >= 1)
+            t5.update(cxt[5]);
+        if (MEM >= 3) {
+            t6.update(cxt[6]);
+            t7.update(cxt[7]);
+        }
+        if (MEM >= 5) {
+            t8.update(cxt[8]);
+            t9.update(cxt[9]);
+        }
     }
-    if (MEM>=5) {
-      t8.update(cxt[8]);
-      t9.update(cxt[9]);
-    }
-  }
-  cp0=&t0[ch()];
-  cp1=&t1[ch()+256*ch(1)];
+    cp0 = &t0[ch()];
+    cp1 = &t1[ch() + 256 * ch(1)];
 
-  // Write predictions to the mixer
-  mixer.write(cp0->get0(), cp0->get1());
-  mixer.write(cp1->get0(), cp1->get1());
-  t2.write();
-  t3.write();
-  t4.write();
-  if (MEM>=1)
-    t5.add();
-  if (MEM>=3) {
-    t6.write();
-    t7.add();
-  }
-  if (MEM>=5) {
-    t8.write();
-    t9.add();
-  }
+    // Write predictions to the mixer
+    mixer.write(cp0->get0(), cp0->get1());
+    mixer.write(cp1->get0(), cp1->get1());
+    t2.write();
+    t3.write();
+    t4.write();
+    if (MEM >= 1)
+        t5.add();
+    if (MEM >= 3) {
+        t6.write();
+        t7.add();
+    }
+    if (MEM >= 5) {
+        t8.write();
+        t9.add();
+    }
 }
 
 //////////////////////////// matchModel ////////////////////////////
@@ -951,85 +995,87 @@ inline void CharModel::model() {
 /* A MatchModel looks for a match of length n >= 8 bytes between
 the current context and previous input, and predicts the next bit
 in the previous context with weight n.  If the next bit is 1, then
-the mixer is assigned (0, n), else (n, 0).  Matchies are found using
+the mixer is assigned (0, n), else (n, 0).  Matches are found using
 an index (a hash table of pointers into ch). */
 
 class MatchModel: public Model {
-  const int N;      // 2^N = hash table size
-  enum {M=4};       // Number of strings to match
-  U32 hash[2];      // Hashes of current context up to pos-1
-  U32 begin[M];     // Points to first matching byte
-  U32 end[M];       // Points to last matching byte + 1, 0 if no match
-  U32 *ptr;         // Hash table of pointers [2^(MEM+17)]
+    const int N;      // 2^N = hash table size
+    enum {M = 4};     // Number of strings to match
+    U32 hash[2];      // Hashes of current context up to pos-1
+    U32 begin[M];     // Points to first matching byte
+    U32 end[M];       // Points to last matching byte + 1, 0 if no match
+    U32 *ptr;         // Hash table of pointers [2^(MEM+17)]
 public:
-  MatchModel(): N(17+MEM-(MEM>=6)), ptr(new U32[1 << N]) {
-    memset(ptr, 0, (1 << N)*sizeof(U32));
-    hash[0]=hash[1]=0;
-    for (int i=0; i<M; ++i)
-      begin[i]=end[i]=0;
-  }
-  void model();
+    MatchModel (): N(17 + MEM - (MEM >= 6)), ptr(new U32[1 << N]) {
+    memset(ptr, 0, (1 << N) * sizeof(U32));
+    hash[0] = hash[1] = 0;
+    for (int i = 0; i < M; ++i)
+        begin[i] = end[i] = 0;
+    }
+    void model ();
 };
 
-inline void MatchModel::model() {
-  if (ch.bpos()==0) {  // New byte
-    hash[0]=hash[0]*(16*56797157)+ch(1)+1;  // Hash last 8 bytes
-    hash[1]=hash[1]*(2*45684217)+ch(1)+1;   // Hash last 32 bytes
-    U32 h=hash[0] >> (32-N);
-    if ((hash[0]>>28)==0)
-      h=hash[1] >> (32-N);  // 1/16 of 8-contexts are hashed to 32 bytes
-    for (int i=0; i<M; ++i) {
-      if (end[i] && ch(1)==ch[end[i]])
-        ++end[i];
-    }
-    for (int i=0; i<M; ++i) {
-      if (!end[i]) { // Search for a matching context
-        int j;
-        for (j=0; j<M; ++j)  // Search for duplicate match
-          if (ptr[h]==end[j])
-            break;
-        if (j!=M)  // Context already matched?
-          break;
-        end[i]=ptr[h];
-        if (end[i]>0) {
-          begin[i]=end[i];
-          U32 p=ch.pos();
-          while (begin[i]>0 && p>0 && begin[i]!=p+1
-              && ch[begin[i]-1]==ch[p-1]) {
-            --begin[i];
-            --p;
-          }
+inline
+void
+MatchModel::model () {
+    if (ch.bpos() == 0) {  // New byte
+        hash[0] = hash[0] * (16 * 56797157) + ch(1) + 1;  // Hash last 8 bytes
+        hash[1] = hash[1] * (2 * 45684217) + ch(1) + 1;   // Hash last 32 bytes
+        U32 h = hash[0] >> (32 - N);
+        if ((hash[0] >> 28) == 0)
+            h = hash[1] >> (32 - N);  // 1/16 of 8-contexts are hashed to 32 bytes
+        for (int i = 0; i < M; ++i) {
+            if (end[i] && ch(1) == ch[end[i]])
+                ++end[i];
         }
-        if (end[i]==begin[i])  // No match found
-          begin[i]=end[i]=0;
-        break;
-      }
+        for (int i = 0; i < M; ++i) {
+            if (!end[i]) { // Search for a matching context
+                int j;
+                for (j = 0; j < M; ++j)  // Search for duplicate match
+                    if (ptr[h] == end[j])
+                        break;
+                if (j != M)  // Context already matched?
+                    break;
+                end[i] = ptr[h];
+                if (end[i] > 0) {
+                    begin[i] = end[i];
+                    U32 p = ch.pos();
+                    while (begin[i] > 0 && p > 0 && begin[i] != p + 1
+                           && ch[begin[i] - 1] == ch[p - 1]) {
+                        --begin[i];
+                        --p;
+                    }
+                }
+                if (end[i] == begin[i])  // No match found
+                    begin[i] = end[i] = 0;
+                break;
+            }
+        }
+        ptr[h] = ch.pos();
     }
-    ptr[h]=ch.pos();
-  }
 
-  // Test whether the current context is valid in the last 0-7 bits
-  for (int i=0; i<M; ++i) {
-    if (end[i] && ((ch[end[i]]+256) >> (8-ch.bpos())) != ch())
-      begin[i]=end[i]=0;
-  }
-
-  // Predict the bit found in the matching contexts
-  int n0=0, n1=0;
-  for (int i=0; i<M; ++i) {
-    if (end[i]) {
-      U32 wt=(end[i]-begin[i]);
-      wt=wt*wt/4;
-      if (wt>511)
-        wt=511;
-      int y=(ch[end[i]]>>(7-ch.bpos()))&1;
-      if (y)
-        n1+=wt;
-      else
-        n0+=wt;
+    // Test whether the current context is valid in the last 0-7 bits
+    for (int i = 0; i < M; ++i) {
+        if (end[i] && ((ch[end[i]] + 256) >> (8 - ch.bpos())) != ch())
+            begin[i] = end[i] = 0;
     }
-  }
-  mixer.write(n0, n1);
+
+    // Predict the bit found in the matching contexts
+    int n0 = 0, n1 = 0;
+    for (int i = 0; i < M; ++i) {
+        if (end[i]) {
+            U32 wt = end[i] - begin[i];
+            wt = wt * wt / 4;
+            if (wt > 511)
+                wt = 511;
+            int y = (ch[end[i]] >> (7 - ch.bpos())) & 1;
+            if (y)
+                n1 += wt;
+            else
+                n0 += wt;
+        }
+    }
+    mixer.write(n0, n1);
 }
 
 //////////////////////////// recordModel ////////////////////////////
@@ -1043,51 +1089,53 @@ occurrence of a byte occuring 4 times in a row equally spaced, e.g.
 the 2 most recent, different record lengths of at least 2. */
 
 class RecordModel: public Model {
-  const int SIZE;
-  enum {N=2};           // Number of models
-  CounterMap t0, t1, t2, t3, t4;  // Model
-  int repeat1, repeat2;  // 2 last cycle lengths
+    const int SIZE;
+    enum {N = 2};         // Number of models
+    CounterMap t0, t1, t2, t3, t4;  // Model
+    int repeat1, repeat2;  // 2 last cycle lengths
 public:
-  RecordModel(): SIZE((MEM>=4)*(16+MEM-(MEM>=6))),
-                 t0(SIZE), t1(SIZE), t2(SIZE), t3(SIZE), t4(SIZE),
-                 repeat1(2), repeat2(3) {}
-  void model();
+    RecordModel (): SIZE((MEM >= 4) * (16 + MEM - (MEM >= 6))),
+                    t0(SIZE), t1(SIZE), t2(SIZE), t3(SIZE), t4(SIZE),
+                    repeat1(2), repeat2(3) {}
+    void model ();
 };
 
 // Update the model with bit y, then put predictions of the next update
 // as 0 counts in n0[0..N-1] and 1 counts in n1[0..N-1]
-inline void RecordModel::model() {
-  if (ch.bpos()==0) {
+inline
+void
+RecordModel::model () {
+    if (ch.bpos() == 0) {
 
-    // Check for a repeating pattern of interval 3 or more
-    const int c=ch(1);
-    const int d1=ch.pos(c,0)-ch.pos(c,1);
-    const int d2=ch.pos(c,1)-ch.pos(c,2);
-    const int d3=ch.pos(c,2)-ch.pos(c,3);
-    if (d1>1 && d1==d2 && d2==d3) {
-      if (d1==repeat1)
-        swap(repeat1, repeat2);
-      else if (d1!=repeat2) {
-        repeat1=repeat2;
-        repeat2=d1;
-      }
+        // Check for a repeating pattern of interval 3 or more
+        const int c = ch(1);
+        const int d1 = ch.pos(c, 0) - ch.pos(c, 1);
+        const int d2 = ch.pos(c, 1) - ch.pos(c, 2);
+        const int d3 = ch.pos(c, 2) - ch.pos(c, 3);
+        if (d1 > 1 && d1 == d2 && d2 == d3) {
+            if (d1 == repeat1)
+                swap(repeat1, repeat2);
+            else if (d1 != repeat2) {
+                repeat1 = repeat2;
+                repeat2 = d1;
+            }
+        }
+
+        // Compute context hashes
+        int r1 = repeat1, r2 = repeat2;
+        if (r1 > r2)
+            swap(r1, r2);
+        t0.update(hash(ch(r1), ch(r1 * 2), r1));  // 2 above (shorter repeat)
+        t1.update(hash(ch(1), ch(r1), r1));     // above and left
+        t2.update(hash(ch(r1), ch.pos() % r1));   // above and pos
+        t3.update(hash(ch(r2), ch(r2 * 2), r2));  // 2 above (longer repeat)
+        t4.update(hash(ch(1), ch(r2), r2));     // above and left
     }
-
-    // Compute context hashes
-    int r1=repeat1, r2=repeat2;
-    if (r1>r2)
-      swap(r1, r2);
-    t0.update(hash(ch(r1), ch(r1*2), r1));  // 2 above (shorter repeat)
-    t1.update(hash(ch(1), ch(r1), r1));     // above and left
-    t2.update(hash(ch(r1), ch.pos()%r1));   // above and pos
-    t3.update(hash(ch(r2), ch(r2*2), r2));  // 2 above (longer repeat)
-    t4.update(hash(ch(1), ch(r2), r2));     // above and left
-  }
-  t0.write();
-  t1.write();
-  t2.write();
-  t3.write();
-  t4.write();
+    t0.write();
+    t1.write();
+    t2.write();
+    t3.write();
+    t4.write();
 }
 
 //////////////////////////// sparseModel ////////////////////////////
@@ -1095,43 +1143,45 @@ inline void RecordModel::model() {
 // A SparseModel models several order-2 contexts with gaps
 
 class SparseModel: public Model {
-  const int SIZE;
-  enum {N=10};   // Number of models
-  CounterMap t0, t1, t2, t3, t4, t5, t6, t7, t8;  // Sparse models
+    const int SIZE;
+    enum {N = 10};   // Number of models
+    CounterMap t0, t1, t2, t3, t4, t5, t6, t7, t8;  // Sparse models
 public:
-  SparseModel(): SIZE((MEM>=4)*(MEM+15-(MEM>=6))),
-                 t0(SIZE), t1(SIZE), t2(SIZE), t3(SIZE), t4(SIZE),
-                 t5(SIZE), t6(SIZE), t7(SIZE), t8(SIZE) {}
-  void model();  // Update and predict
+    SparseModel (): SIZE((MEM >= 4) * (MEM + 15 - (MEM >= 6))),
+                    t0(SIZE), t1(SIZE), t2(SIZE), t3(SIZE), t4(SIZE),
+                    t5(SIZE), t6(SIZE), t7(SIZE), t8(SIZE) {}
+    void model ();  // Update and predict
 };
 
-inline void SparseModel::model() {
+inline
+void
+SparseModel::model () {
 
-  // Update context
-  if (ch.bpos()==0) {
-    t0.update(hash(ch(1), ch(3)));
-    t1.update(hash(ch(1), ch(4)));
-    t2.update(hash(ch(1), ch(5)));
-    t3.update(hash(ch(1), ch(6)));
-    t4.update(hash(ch(2), ch(3)));
-    t5.update(hash(ch(2), ch(4)));
-    t6.update(hash(ch(3), ch(4)));
-    const int g=min(255, int(ch.pos()-ch.pos(ch(1), 2))); // gap to prior ch1
-    t7.update(hash(ch(1), g));
-    t8.update(hash(ch(1), ch(2), g));
-  }
+    // Update context
+    if (ch.bpos() == 0) {
+        t0.update(hash(ch(1), ch(3)));
+        t1.update(hash(ch(1), ch(4)));
+        t2.update(hash(ch(1), ch(5)));
+        t3.update(hash(ch(1), ch(6)));
+        t4.update(hash(ch(2), ch(3)));
+        t5.update(hash(ch(2), ch(4)));
+        t6.update(hash(ch(3), ch(4)));
+        const int g = min(255, int(ch.pos() - ch.pos(ch(1), 2))); // gap to prior ch1
+        t7.update(hash(ch(1), g));
+        t8.update(hash(ch(1), ch(2), g));
+    }
 
-  // Predict
+    // Predict
 
-  t0.write();
-  t1.write();
-  t2.write();
-  t3.write();
-  t4.write();
-  t5.write();
-  t6.write();
-  t7.write();
-  t8.write();
+    t0.write();
+    t1.write();
+    t2.write();
+    t3.write();
+    t4.write();
+    t5.write();
+    t6.write();
+    t7.write();
+    t8.write();
 }
 
 //////////////////////////// analogModel ////////////////////////////
@@ -1141,32 +1191,34 @@ inline void SparseModel::model() {
 // images), and CCITT images.
 
 class AnalogModel: public Model {
-  const int SIZE;
-  enum {N=6};
-  CounterMap t0, t1, t2, t3, t4, t5, t6;
-  int pos3;  // pos % 3
+    const int SIZE;
+    enum {N = 6};
+    CounterMap t0, t1, t2, t3, t4, t5, t6;
+    int pos3;  // pos % 3
 public:
-  AnalogModel(): SIZE((MEM>=4)*(MEM+13)), t0(SIZE), t1(SIZE),
-                 t2(SIZE), t3(SIZE), t4(SIZE), t5(SIZE), t6(SIZE), pos3(0) {}
-  void model() {
-    if (ch.bpos()==0) {
-      if (++pos3==3) pos3=0;
-      t0.update(hash(ch(2)/4, ch(4)/4, ch.pos()%2));  // 16 bit mono model
-      t1.update(hash(ch(2)/16, ch(4)/16, ch.pos()%2));
-      t2.update(hash(ch(2)/4, ch(4)/4, ch(8)/4, ch.pos()%4)); // Stereo
-      t3.update(hash(ch(3), ch(6)/4, pos3));  // 24 bit image models
-      t4.update(hash(ch(1)/16, ch(2)/16, ch(3)/4, pos3));
-      t5.update(hash(ch(1)/2, ch(2)/8, ch(3)/32));  // 8-bit data model
-      t6.update(hash(ch(216), ch(432)));  // CCITT images
+    AnalogModel (): SIZE((MEM >= 4) * (MEM + 13)), t0(SIZE), t1(SIZE),
+                    t2(SIZE), t3(SIZE), t4(SIZE), t5(SIZE), t6(SIZE), pos3(0) {}
+    void
+    model () {
+        if (ch.bpos() == 0) {
+            if (++pos3 == 3)
+                pos3 = 0;
+            t0.update(hash(ch(2) / 4, ch(4) / 4, ch.pos() % 2));  // 16 bit mono model
+            t1.update(hash(ch(2) / 16, ch(4) / 16, ch.pos() % 2));
+            t2.update(hash(ch(2) / 4, ch(4) / 4, ch(8) / 4, ch.pos() % 4)); // Stereo
+            t3.update(hash(ch(3), ch(6) / 4, pos3));  // 24 bit image models
+            t4.update(hash(ch(1) / 16, ch(2) / 16, ch(3) / 4, pos3));
+            t5.update(hash(ch(1) / 2, ch(2) / 8, ch(3) / 32));  // 8-bit data model
+            t6.update(hash(ch(216), ch(432)));  // CCITT images
+        }
+        t0.write();
+        t1.add();
+        t2.add();
+        t3.write();
+        t4.add();
+        t5.write();
+        t6.write();
     }
-    t0.write();
-    t1.add();
-    t2.add();
-    t3.write();
-    t4.add();
-    t5.write();
-    t6.write();
-  }
 };
 
 //////////////////////////// wordModel ////////////////////////////
@@ -1176,49 +1228,52 @@ public:
 // bigram model (skipping 1 word).
 
 class WordModel: public Model {
-  const int SIZE;
-  enum {N=3};
-  CounterMap t0, t1, t2, t3, t4, t5;
-  U32 cxt[N];   // Hashes of last N words broken on whitespace
-  U32 word[N];  // Hashes of last N words of letters only, lower case
+    const int SIZE;
+    enum {N = 3};
+    CounterMap t0, t1, t2, t3, t4, t5;
+    U32 cxt[N];   // Hashes of last N words broken on whitespace
+    U32 word[N];  // Hashes of last N words of letters only, lower case
 public:
-  WordModel(): SIZE((MEM>=4)*(MEM+17-(MEM>=6))),
-               t0(SIZE), t1(SIZE), t2(SIZE), t3(SIZE), t4(SIZE), t5(SIZE) {
-    for (int i=0; i<N; ++i)
-      cxt[i]=word[i]=0;
-  }
-  void model() {
-    if (ch.bpos()==0) {
-      int c=ch(1);
-      if (c>32) {
-        cxt[0]^=hash(cxt[0], c);
-      }
-      else if (cxt[0]) {
-        for (int i=N-1; i>0; --i)
-          cxt[i]=cxt[i-1];
-        cxt[0]=0;
-      }
-      if (isalpha(c) || c>=192)
-        word[0]^=hash(word[0], tolower(c), 1);
-      else {
-        for (int i=N-1; i>0; --i)
-          word[i]=word[i-1];
-        word[0]=0;
-      }
-      t0.update(cxt[0]);
-      t1.update(cxt[1]+cxt[0]);
-      t2.update(cxt[2]+cxt[0]);
-      t3.update(word[0]);
-      t4.update(word[1]+word[0]);
-      t5.update(word[2]+word[0]);
+    WordModel ()
+        : SIZE((MEM >= 4) * (MEM + 17 - (MEM >=6 ))),
+          t0(SIZE), t1(SIZE), t2(SIZE), t3(SIZE), t4(SIZE), t5(SIZE)
+        {
+            for (int i = 0; i < N; ++i)
+                cxt[i] = word[i] = 0;
+        }
+    void
+    model () {
+        if (ch.bpos() == 0) {
+            int c = ch(1);
+            if (c > 32) {
+                cxt[0] ^= hash(cxt[0], c);
+            }
+            else if (cxt[0]) {
+                for (int i = N-1; i > 0; --i)
+                    cxt[i] = cxt[i-1];
+                cxt[0] = 0;
+            }
+            if (isalpha(c) || c >= 192)
+                word[0] ^= hash(word[0], tolower(c), 1);
+            else {
+                for (int i = N - 1; i > 0; --i)
+                    word[i] = word[i - 1];
+                word[0] = 0;
+            }
+            t0.update(cxt[0]);
+            t1.update(cxt[1] + cxt[0]);
+            t2.update(cxt[2] + cxt[0]);
+            t3.update(word[0]);
+            t4.update(word[1] + word[0]);
+            t5.update(word[2] + word[0]);
+        }
+        t0.write();
+        t1.write();
+        t2.write();
+        t3.write();
+        t4.write();
+        t5.write();
     }
-    t0.write();
-    t1.write();
-    t2.write();
-    t3.write();
-    t4.write();
-    t5.write();
-  }
 };
 
 //////////////////////////// exeModel ////////////////////////////
@@ -1227,81 +1282,82 @@ public:
 // to absolute addresses
 
 class ExeModel {
-  struct S {
-    U32 a;  // absolute address, indexed on 8 low order bytes
-    U8 n;  // how many times?
-    S(): a(0), n(0) {}
-  };
-  S t[256];  // E8 history indexed on low order byte
+    struct S {
+        U32 a;  // absolute address, indexed on 8 low order bytes
+        U8 n;  // how many times?
+        S (): a(0), n(0) {}
+    };
+    S t[256];  // E8 history indexed on low order byte
 public:
-  void model() {
+    void
+    model () {
 
     // Convert E8 relative little-endian address to absolute by adding
     // file offset, then store in table t indexed by its low byte
-    if (ch.bpos()==0) {
-      if (ch(5)==0xe8 && (ch(1)==0 || ch(1)==0xff)) {
-        U32 a=ch(4)+(ch(3)<<8)+(ch(2)<<16)+(ch(1)<<24)+ch.pos()-5;
-        int i=a&0xff;
-        if (t[i].a==a && t[i].n<255)
-          ++t[i].n;
-        else {
-          t[i].a=a;
-          t[i].n=1;
+        if (ch.bpos() == 0) {
+            if (ch(5) == 0xe8 && (ch(1) == 0 || ch(1) == 0xff)) {
+                U32 a = ch(4) + (ch(3) << 8) + (ch(2) << 16) + (ch(1) << 24) + ch.pos() - 5;
+                int i = a & 0xff;
+                if (t[i].a == a && t[i].n < 255)
+                    ++t[i].n;
+                else {
+                    t[i].a = a;
+                    t[i].n = 1;
+                }
+            }
         }
-      }
-    }
-    int n0=0, n1=0;
+        int n0 = 0, n1 = 0;
 
     // Model 4th byte of address
-    if (ch(4)==0xe8) {
-      int i=(ch(3)+ch.pos()-4)&0xff;  // index in t
-      if (t[i].n>0) {
-        U32 r=t[i].a-ch.pos()+4;  // predicted relative address
-        U32 ck=(((r&0xff000000)>>8)+0x1000000)>>(24-ch.bpos());
-          // ch(0) should be this if context matches so far
-        int y=(r>>(31-ch.bpos()))&1;  // predicted bit
-        if (ch(0)==ck && ch(1)==((r>>16)&0xff)) {
-          if (y)
-            n1=t[i].n*16;
-          else
-            n0=t[i].n*16;
+        if (ch(4) == 0xe8) {
+            int i = (ch(3) + ch.pos() - 4) & 0xff;  // index in t
+            if (t[i].n > 0) {
+                U32 r = t[i].a - ch.pos() + 4;  // predicted relative address
+                U32 ck = (((r & 0xff000000) >> 8) + 0x1000000) >> (24 - ch.bpos());
+                // ch(0) should be this if context matches so far
+                int y = (r >> (31 - ch.bpos())) & 1;  // predicted bit
+                if (ch(0) == ck && ch(1) == ((r >> 16) & 0xff)) {
+                    if (y)
+                        n1 = t[i].n * 16;
+                    else
+                        n0 = t[i].n * 16;
+                }
+            }
         }
-      }
-    }
 
-    // Model 3rd byte of address
-    if (ch(3)==0xe8) {
-      int i=(ch(2)+ch.pos()-3)&0xff;
-      if (t[i].n>0) {
-        U32 r=t[i].a-ch.pos()+3;
-        U32 ck=((r&0xff0000)+0x1000000)>>(24-ch.bpos());
-        int y=(r>>(23-ch.bpos()))&1;
-        if (ch(0)==ck && ch(1)==((r>>8)&0xff)) {
-          if (y)
-            n1=t[i].n*4;
-          else
-            n0=t[i].n*4;
+        // Model 3rd byte of address
+        if (ch(3) == 0xe8) {
+            int i = (ch(2) + ch.pos() - 3) & 0xff;
+            if (t[i].n > 0) {
+                U32 r = t[i].a - ch.pos() + 3;
+                U32 ck = ((r & 0xff0000) + 0x1000000) >> (24 - ch.bpos());
+                int y = (r >> (23 - ch.bpos())) & 1;
+                if (ch(0) == ck && ch(1) == ((r >> 8) & 0xff)) {
+                    if (y)
+                        n1 = t[i].n * 4;
+                    else
+                        n0 = t[i].n * 4;
+                }
+            }
         }
-      }
-    }
 
-    // Model 2nd byte of address
-    else if (ch(2)==0xe8) {
-      int i=(ch(1)+ch.pos()-2)&0xff;
-      if (t[i].n>0) {
-        U32 r=t[i].a-ch.pos()+2;
-        U32 ck=((r&0xff00)+0x10000)>>(16-ch.bpos());
-        int y=(r>>(15-ch.bpos()))&1;
-        if (ch(0)==ck) {
-          if (y)
-            n1=t[i].n;
-          else
-            n0=t[i].n;
+        // Model 2nd byte of address
+        else if (ch(2) == 0xe8) {
+            int i = (ch(1) + ch.pos() - 2) & 0xff;
+            if (t[i].n > 0) {
+                U32 r = t[i].a - ch.pos() + 2;
+                U32 ck = ((r & 0xff00) + 0x10000) >> (16 - ch.bpos());
+                int y = (r >> (15 - ch.bpos())) & 1;
+                if (ch(0) == ck) {
+                    if (y)
+                        n1 = t[i].n;
+                    else
+                        n0 = t[i].n;
+                }
+            }
         }
-      }
+        mixer.write(n0, n1);
     }
-    mixer.write(n0, n1);
-  }
 };
 
 //////////////////////////// Predictor ////////////////////////////
@@ -1323,124 +1379,128 @@ probability passed to the encoder. */
 
 class Predictor {
 
-  // Models
-  DefaultModel defaultModel;
-  CharModel charModel;
-  MatchModel matchModel;
-  RecordModel recordModel;
-  SparseModel sparseModel;
-  AnalogModel analogModel;
-  WordModel wordModel;
-  ExeModel exeModel;
+    // Models
+    DefaultModel defaultModel;
+    CharModel charModel;
+    MatchModel matchModel;
+    RecordModel recordModel;
+    SparseModel sparseModel;
+    AnalogModel analogModel;
+    WordModel wordModel;
+    ExeModel exeModel;
 
-  enum {SSE1=256*4*2, SSE2=32,  // SSE dimensions (contexts, probability bins)
-    SSESCALE=1024/SSE2};      // Number of mapped probabilities between bins
+    enum {SSE1 = 256 * 4 * 2, SSE2 = 32,  // SSE dimensions (contexts, probability bins)
+          SSESCALE = 1024 / SSE2};      // Number of mapped probabilities between bins
 
-  // Scale probability p into a context in the range 0 to 1K-1 by
-  // stretching the ends of the range.
-  class SSEMap {
-    U16 table[PSCALE];
-  public:
-    int operator()(int p) const {return table[p];}
-    SSEMap();
-  } ssemap;  // functoid
+    // Scale probability p into a context in the range 0 to 1K-1 by
+    // stretching the ends of the range.
+    class SSEMap {
+        U16 table[PSCALE];
+    public:
+        int operator() (int p) const { return table[p]; }
+        SSEMap ();
+    } ssemap;  // functoid
 
-  // Secondary source encoder element
-  struct SSEContext {
-    U8 c1, n;  // Count of 1's, count of bits
-    int p() const {return PSCALE*(c1*64+1)/(n*64+2);}
-    void update(int y) {
-      if (y)
-        ++c1;
-      if (++n>254) {  // Roll over count overflows
-        c1/=2;
-        n/=2;
-      }
-    }
-    SSEContext(): c1(0), n(0) {}
-  };
+    // Secondary source encoder element
+    struct SSEContext {
+        U8 c1, n;  // Count of 1's, count of bits
+        int p () const { return PSCALE * (c1 * 64 + 1) / (n * 64 + 2); }
+        void
+        update (int y) {
+            if (y)
+                ++c1;
+            if (++n > 254) {  // Roll over count overflows
+                c1 /= 2;
+                n /= 2;
+            }
+        }
+        SSEContext(): c1(0), n(0) {}
+    };
 
-  SSEContext (*sse)[SSE2+1];  // [SSE1][SSE2+1] context, mapped probability
-  U32 nextp;   // p()
-  U32 ssep;    // Output of sse
-  U32 context; // SSE context
+    SSEContext (*sse)[SSE2 + 1];  // [SSE1][SSE2+1] context, mapped probability
+    U32 nextp;   // p()
+    U32 ssep;    // Output of sse
+    U32 context; // SSE context
 public:
-  Predictor();
-  int p() const {return nextp;}  // Returns pr(y = 1) * PSCALE
-  void update(int y);  // Update model with bit y = 0 or 1
+    Predictor ();
+    int p () const { return nextp; }  // Returns pr(y = 1) * PSCALE
+    void update (int y);  // Update model with bit y = 0 or 1
 };
 
-Predictor::SSEMap::SSEMap() {
-  for (int i=0; i<PSCALE; ++i) {
-    int p=int(64*log((i+0.5)/(PSCALE-0.5-i))+512);
-    if (p>1023) p=1023;
-    if (p<0) p=0;
-    table[i]=p;
-  }
-}
-
-Predictor::Predictor(): sse(0), nextp(PSCALE/2), ssep(512), context(0) {
-  ch.init();
-
-  // Initialize to sse[context][ssemap(p)] = p
-  if (MEM>=1) {
-    sse=(SSEContext(*)[SSE2+1]) new SSEContext[SSE1][SSE2+1];
-    int N=PSCALE;
-    int oldp=SSE2+1;
-    for (int i=N-1; i>=0; --i) {
-      int p=(ssemap(i*PSCALE/N)+SSESCALE/2)/SSESCALE;
-      int n=1+N*N/((i+1)*(N-i));
-      if (n>254) n=254;
-      int c1=(i*n+N/2)/N;
-      for (int j=oldp-1; j>=p; --j) {
-        for (int k=0; k<SSE1; ++k) {
-          sse[k][j].n=n;
-          sse[k][j].c1=c1;
-        }
-      }
-      oldp=p;
+Predictor::SSEMap::SSEMap () {
+    for (int i = 0; i < PSCALE; ++i) {
+        int p = int(64 * log((i + 0.5) / (PSCALE - 0.5 - i)) + 512);
+        if (p > 1023) p = 1023;
+        if (p < 0) p = 0;
+        table[i] = p;
     }
-  }
 }
 
-inline void Predictor::update(int y) {
+Predictor::Predictor ()
+    : sse(0), nextp(PSCALE / 2), ssep(512), context(0)
+{
+    ch.init();
 
-  // Update the bins below and above the last input probability, ssep
-  if (MEM>=1) {
-    sse[context][ssep/SSESCALE].update(y);
-    sse[context][ssep/SSESCALE+1].update(y);
-  }
+    // Initialize to sse[context][ssemap(p)] = p
+    if (MEM >= 1) {
+        sse = (SSEContext(*)[SSE2 + 1]) new SSEContext[SSE1][SSE2 + 1];
+        int N = PSCALE;
+        int oldp = SSE2 + 1;
+        for (int i = N - 1; i >= 0; --i) {
+            int p = (ssemap(i * PSCALE / N) + SSESCALE / 2) / SSESCALE;
+            int n = 1 + N * N / ((i + 1) * (N - i));
+            if (n > 254) n = 254;
+            int c1 = (i * n + N / 2) / N;
+            for (int j = oldp - 1; j >= p; --j) {
+                for (int k = 0; k < SSE1; ++k) {
+                    sse[k][j].n = n;
+                    sse[k][j].c1 = c1;
+                }
+            }
+            oldp = p;
+        }
+    }
+}
 
-  // Adjust model mixing weights
-  mixer.update(y);
+inline
+void
+Predictor::update (int y) {
+    // Update the bins below and above the last input probability, ssep
+    if (MEM >= 1) {
+        sse[context][ssep / SSESCALE].update(y);
+        sse[context][ssep / SSESCALE + 1].update(y);
+    }
 
-  // Update individual models
-  ch.update(y);
-  defaultModel.model();
-  charModel.model();
-  if (MEM>=2)
-    matchModel.model();
-  if (MEM>=4) {
-    recordModel.model();
-    sparseModel.model();
-    analogModel.model();
-    wordModel.model();
-  }
-  if (MEM>=3)
-    exeModel.model();
+    // Adjust model mixing weights
+    mixer.update(y);
 
-  // Combine probabilities
-  nextp=mixer.predict();
+    // Update individual models
+    ch.update(y);
+    defaultModel.model();
+    charModel.model();
+    if (MEM >= 2)
+        matchModel.model();
+    if (MEM >= 4) {
+        recordModel.model();
+        sparseModel.model();
+        analogModel.model();
+        wordModel.model();
+    }
+    if (MEM >= 3)
+        exeModel.model();
 
-  // Get final probability, interpolate SSE and average with original
-  if (MEM>=1) {
-    context=(ch(0)*4+ch(1)/64)*2+(ch.pos(0,3)<ch.pos(32,3));  // for SSE
-    ssep=ssemap(nextp);
-    U32 wt=ssep%SSESCALE;
-    U32 i=ssep/SSESCALE;
-    nextp=(((sse[context][i].p()*(SSESCALE-wt)+sse[context][i+1].p()*wt)
-      /SSESCALE)*3+nextp)/4;
-  }
+    // Combine probabilities
+    nextp = mixer.predict();
+
+    // Get final probability, interpolate SSE and average with original
+    if (MEM >= 1) {
+        context = (ch(0) * 4 + ch(1) / 64) * 2 + (ch.pos(0,3) < ch.pos(32,3));  // for SSE
+        ssep = ssemap(nextp);
+        U32 wt = ssep % SSESCALE;
+        U32 i = ssep / SSESCALE;
+        nextp = (((sse[context][i].p() * (SSESCALE - wt) + sse[context][i + 1].p() * wt)
+                  / SSESCALE) * 3 + nextp) / 4;
+    }
 }
 
 //////////////////////////// Encoder ////////////////////////////
@@ -1458,109 +1518,110 @@ inline void Predictor::update(int y) {
 typedef enum {COMPRESS, DECOMPRESS} Mode;
 class Encoder {
 private:
-  Predictor predictor;
-  const Mode mode;       // Compress or decompress?
-  FILE* archive;         // Compressed data file
-  U32 x1, x2;            // Range, initially [0, 1), scaled by 2^32
-  U32 x;                 // Last 4 input bytes of archive.
+    Predictor predictor;
+    const Mode mode;       // Compress or decompress?
+    FILE* archive;         // Compressed data file
+    U32 x1, x2;            // Range, initially [0, 1), scaled by 2^32
+    U32 x;                 // Last 4 input bytes of archive.
 public:
-  Encoder(Mode m, FILE* f);
-  void encode(int y);    // Compress bit y
-  int decode();          // Uncompress and return bit y
-  void flush();          // Call when done compressing
+    Encoder (Mode m, FILE* f);
+    void encode (int y);    // Compress bit y
+    int decode ();          // Uncompress and return bit y
+    void flush ();          // Call when done compressing
 };
 
 // Constructor
-Encoder::Encoder(Mode m, FILE* f): predictor(), mode(m), archive(f), x1(0),
-                                   x2(0xffffffff), x(0) {
-
-  // In DECOMPRESS mode, initialize x to the first 4 bytes of the archive
-  if (mode==DECOMPRESS) {
-    for (int i=0; i<4; ++i) {
-      int c=getc(archive);
-      if (c==EOF) c=0;  // PAQ6v2 bug fix (thanks to Alexander Ratushnyak)
-      x=(x<<8)+(c&0xff);
+Encoder::Encoder (Mode m, FILE* f)
+    : predictor(), mode(m), archive(f), x1(0), x2(0xffffffff), x(0) {
+    // In DECOMPRESS mode, initialize x to the first 4 bytes of the archive
+    if (mode == DECOMPRESS) {
+        for (int i = 0; i < 4; ++i) {
+            int c = getc(archive);
+            if (c == EOF) c = 0;  // PAQ6v2 bug fix (thanks to Alexander Ratushnyak)
+            x = (x << 8) + (c & 0xff);
+        }
     }
-  }
 }
 
 /* encode(y) -- Encode bit y by splitting the range [x1, x2] in proportion
 to P(1) and P(0) as given by the predictor and narrowing to the appropriate
 subrange.  Output leading bytes of the range as they become known. */
 
-inline void Encoder::encode(int y) {
+inline
+void
+Encoder::encode (int y) {
+    // Split the range
+    const U32 p = predictor.p() * (4096 / PSCALE) + 2048 / PSCALE; // P(1) * 4K
+    assert(p < 4096);
+    const U32 xdiff = x2 - x1;
+    U32 xmid = x1;  // = x1+p*(x2-x1) multiply without overflow, round down
+    if (xdiff >= 0x4000000) xmid += (xdiff >> 12) * p;
+    else if (xdiff >= 0x100000) xmid += ((xdiff >> 6) * p) >> 6;
+    else xmid += (xdiff * p) >> 12;
 
-  // Split the range
-  const U32 p=predictor.p()*(4096/PSCALE)+2048/PSCALE; // P(1) * 4K
-  assert(p<4096);
-  const U32 xdiff=x2-x1;
-  U32 xmid=x1;  // = x1+p*(x2-x1) multiply without overflow, round down
-  if (xdiff>=0x4000000) xmid+=(xdiff>>12)*p;
-  else if (xdiff>=0x100000) xmid+=((xdiff>>6)*p)>>6;
-  else xmid+=(xdiff*p)>>12;
+    // Update the range
+    if (y)
+        x2 = xmid;
+    else
+        x1 = xmid + 1;
+    predictor.update(y);
 
-  // Update the range
-  if (y)
-    x2=xmid;
-  else
-    x1=xmid+1;
-  predictor.update(y);
-
-  // Shift equal MSB's out
-  while (((x1^x2)&0xff000000)==0) {
-    putc(x2>>24, archive);
-    x1<<=8;
-    x2=(x2<<8)+255;
-  }
+    // Shift equal MSB's out
+    while (((x1 ^ x2) & 0xff000000) == 0) {
+        putc(x2 >> 24, archive);
+        x1 <<= 8;
+        x2 = (x2 << 8) + 255;
+    }
 }
 
 /* Decode one bit from the archive, splitting [x1, x2] as in the encoder
 and returning 1 or 0 depending on which subrange the archive point x is in.
 */
-inline int Encoder::decode() {
+inline
+int
+Encoder::decode () {
+    // Split the range
+    const U32 p = predictor.p() * (4096 / PSCALE) + 2048 / PSCALE; // P(1) * 4K
+    assert(p < 4096);
+    const U32 xdiff = x2 - x1;
+    U32 xmid = x1;  // = x1 + p * (x2 - x1) multiply without overflow, round down
+    if (xdiff >= 0x4000000) xmid += (xdiff >> 12) * p;
+    else if (xdiff >= 0x100000) xmid += ((xdiff >> 6) * p) >> 6;
+    else xmid += (xdiff * p) >> 12;
 
-  // Split the range
-  const U32 p=predictor.p()*(4096/PSCALE)+2048/PSCALE; // P(1) * 4K
-  assert(p<4096);
-  const U32 xdiff=x2-x1;
-  U32 xmid=x1;  // = x1+p*(x2-x1) multiply without overflow, round down
-  if (xdiff>=0x4000000) xmid+=(xdiff>>12)*p;
-  else if (xdiff>=0x100000) xmid+=((xdiff>>6)*p)>>6;
-  else xmid+=(xdiff*p)>>12;
+    // Update the range
+    int y = 0;
+    if (x <= xmid) {
+        y = 1;
+        x2 = xmid;
+    }
+    else
+        x1 = xmid + 1;
+    predictor.update(y);
 
-  // Update the range
-  int y=0;
-  if (x<=xmid) {
-    y=1;
-    x2=xmid;
-  }
-  else
-    x1=xmid+1;
-  predictor.update(y);
-
-  // Shift equal MSB's out
-  while (((x1^x2)&0xff000000)==0) {
-    x1<<=8;
-    x2=(x2<<8)+255;
-    int c=getc(archive);
-    if (c==EOF) c=0;
-    x=(x<<8)+c;
-  }
-  return y;
+    // Shift equal MSB's out
+    while (((x1 ^ x2) & 0xff000000) == 0) {
+        x1 <<= 8;
+        x2 = (x2 << 8) + 255;
+        int c = getc(archive);
+        if (c == EOF) c = 0;
+        x = (x << 8) + c;
+    }
+    return y;
 }
 
 // Should be called when there is no more to compress
-void Encoder::flush() {
-
-  // In COMPRESS mode, write out the remaining bytes of x, x1 < x < x2
-  if (mode==COMPRESS) {
-    while (((x1^x2)&0xff000000)==0) {
-      putc(x2>>24, archive);
-      x1<<=8;
-      x2=(x2<<8)+255;
+void
+Encoder::flush () {
+    // In COMPRESS mode, write out the remaining bytes of x, x1 < x < x2
+    if (mode == COMPRESS) {
+        while (((x1 ^ x2) & 0xff000000) == 0) {
+            putc(x2 >> 24, archive);
+            x1 <<= 8;
+            x2 = (x2 << 8) + 255;
+        }
+        putc(x2 >> 24, archive);  // First unequal byte
     }
-    putc(x2>>24, archive);  // First unequal byte
-  }
 }
 
 //////////////////////////// Transformer ////////////////////////////
@@ -1578,330 +1639,327 @@ void Encoder::flush() {
 */
 
 class Transformer {
-  Encoder e;
+    Encoder e;
 public:
-  Transformer(Mode mode, FILE* f): e(mode, f) {}
-  void encode(int c) {
-    for (int i=7; i>=0; --i)
-      e.encode((c>>i)&1);
-  }
-  U32 decode() {
-    U32 c=0;
-    for (int i=0; i<8; ++i)
-      c=c+c+e.decode();
-    return c;
-  }
-  void flush() {
-    e.flush();
-  }
+    Transformer (Mode mode, FILE* f): e(mode, f) {}
+    void
+    encode (int c) {
+        for (int i = 7; i >= 0; --i)
+            e.encode((c >> i) & 1);
+    }
+    U32
+    decode () {
+        U32 c = 0;
+        for (int i = 0; i < 8; ++i)
+            c = c + c + e.decode();
+        return c;
+    }
+    void
+    flush () {
+        e.flush();
+    }
 };
 
 //////////////////////////// main ////////////////////////////
 
 // Read and return a line of input from FILE f (default stdin) up to
 // first control character except tab.  Skips CR in CR LF.
-string getline(FILE* f=stdin) {
-  int c;
-  string result="";
-  while ((c=getc(f))!=EOF && (c>=32 || c=='\t'))
-    result+=char(c);
-  if (c=='\r')
-    (void) getc(f);
-  return result;
+string
+getline (FILE* f = stdin) {
+    int c;
+    string result = "";
+    while ((c = getc(f)) != EOF && (c >= 32 || c == '\t'))
+        result += char(c);
+    if (c == '\r')
+        (void) getc(f);
+    return result;
 }
 
 // User interface
-int main(int argc, char** argv) {
-int _mode = 0;
-  // Check arguments
-  if (argc<2) {
-      printf("KGB Archiver v1.0, (C) 2005-2006 Tomasz Pawlak\nBased on PAQ6 by Matt Mahoney\nmod by Slawek (poczta-sn@gazeta.pl)\n\n"
-      "Compression:\t\tkgb_arch.exe -<m> archive.kgb files <@list_files>\n"
-      "Decompression:\t\tkgb_arch.exe archive.kgb\n"
-      "Table of contests:\tmore < archive.kgb\n\n"
-      "m argument\tmemory usage\n"
-      "----------\t------------------------------\n"
-      " -0       \t 2 MB (the fastest compression)\n"
-      " -1       \t 3 MB\n"
-      " -2       \t 6 MB\n"
-      " -3       \t 18 MB (dafault)\n"
-      " -4       \t 64 MB\n"
-      " -5       \t 154 MB\n"
-      " -6       \t 202 MB\n"
-      " -7       \t 404 MB\n"
-      " -8       \t 808 MB\n"
-      " -9       \t 1616 MB (the best compression)\n");
-    return 1;
-  }
+int
+main (int argc, char** argv) {
+    int _mode = 0;
 
-  // Read and remove -MEM option
-  if (argc>1 && argv[1][0]=='-') {
-    if (isdigit(argv[1][1]) && argv[1][2]==0) {
-      MEM=argv[1][1]-'0';
-    }
-    else
-      printf("Option %s ignored\n", argv[1]);
-    argc--;
-    argv++;
-  }
-
-  // File names and sizes from input or archive
-  vector<string> filename; // List of names
-  vector<long> filesize;   // Size or -1 if error
-  int uncompressed_bytes=0, compressed_bytes=0;  // Input, output sizes
-
-  // Extract files
-  FILE* archive=fopen(argv[1], "rb");
-  if (archive) {
-  _mode = 0;
-    if (argc>2) {
-      printf("File %s already exists\n", argv[1]);
-      return 1;
-    }
-
-    // Read PROGNAME " -m\r\n" at start of archive
-    string s=getline(archive);
-    if (s.substr(0, string(PROGNAME).size()) != PROGNAME) {
-      printf("Archive %s is not in KGB Archiver format\n", argv[1]);
-      return 1;
-    }
-
-    // Get option -m where m is a digit
-    if (s.size()>2 && s[s.size()-2]=='-') {
-      int c=s[s.size()-1];
-      if (c>='0' && c<='9')
-        MEM=c-'0';
-    }
-    printf("Extracting archive " PROGNAME " -%d %s ...\n", MEM, argv[1]);
-
-    // Read "size filename" in "%d\t%s\r\n" format
-    while (true) {
-      string s=getline(archive);
-      if (s.size()>1) {
-        filesize.push_back(atol(s.c_str()));
-        string::iterator tab=find(s.begin(), s.end(), '\t');
-        if (tab!=s.end())
-          filename.push_back(string(tab+1, s.end()));
-        else
-          filename.push_back("");
-      }
-      else
-        break;
-    }
-
-    // Test end of header for "\f\0"
-    {
-      int c1=0, c2=0;
-      if ((c1=getc(archive))!='\f' || (c2=getc(archive))!=0) {
-        printf("%s: Incorrect format of file header %d %d\n", argv[1],
-          c1, c2);
+    // Check arguments
+    if (argc < 2) {
+        printf(
+            "KGB Archiver v1.0, (C) 2005-2006 Tomasz Pawlak\nBased on PAQ6 by Matt Mahoney\nmod by Slawek (poczta-sn@gazeta.pl)\n\n"
+            "Compression:\t\tkgb_arch.exe -<m> archive.kgb files <@list_files>\n"
+            "Decompression:\t\tkgb_arch.exe archive.kgb\n"
+            "Table of contests:\tmore < archive.kgb\n\n"
+            "m argument\tmemory usage\n"
+            "----------\t------------------------------\n"
+            " -0       \t 2 MB (the fastest compression)\n"
+            " -1       \t 3 MB\n"
+            " -2       \t 6 MB\n"
+            " -3       \t 18 MB (dafault)\n"
+            " -4       \t 64 MB\n"
+            " -5       \t 154 MB\n"
+            " -6       \t 202 MB\n"
+            " -7       \t 404 MB\n"
+            " -8       \t 808 MB\n"
+            " -9       \t 1616 MB (the best compression)\n"
+            );
         return 1;
-      }
     }
 
-    // Extract files from archive data
-    Transformer e(DECOMPRESS, archive);
-    for (int i=0; i<int(filename.size()); ++i) {
-      printf("%10ldKB %s: ", filesize[i]/1024, filename[i].c_str());
+    // Read and remove -MEM option
+    if (argc > 1 && argv[1][0] == '-') {
+        if (isdigit(argv[1][1]) && argv[1][2] == 0)
+            MEM = argv[1][1] - '0';
+        else
+            printf("Option %s ignored\n", argv[1]);
+        argc--;
+        argv++;
+    }
 
-      // Compare with existing file
-      FILE* f=fopen(filename[i].c_str(), "rb");
-      const long size=filesize[i];
-      uncompressed_bytes+=size;
-      if (f) {
-        bool different=false;
-        for (long j=0; j<size; ++j) {
-          int c1=e.decode();
-          int c2=getc(f);
-          if (!different && c1!=c2) {
-            printf("different: offset %ld, archive=%d file=%d\n",
-              j, c1, c2);
-            different=true;
-          }
+    // File names and sizes from input or archive
+    vector<string> filename; // List of names
+    vector<long> filesize;   // Size or -1 if error
+    int uncompressed_bytes = 0, compressed_bytes = 0;  // Input, output sizes
+
+    // Extract files
+    FILE* archive=fopen(argv[1], "rb");
+    if (archive) {
+        _mode = 0;
+        if (argc>2) {
+            printf("File %s already exists\n", argv[1]);
+            return 1;
         }
-        if (!different)
-          printf("equal\n");
-        fclose(f);
-      }
 
-      // Extract to new file
-      else {
-/* security bug fixed by Joxean Koret, 1/04/2006, Thanks!*/
-/*        f=fopen(filename[i].c_str(), "wb");
-        if (!f)
-          printf("cannot create, skipping...\n");
-        for (long j=0; j<size; ++j) {
-          int c=e.decode();
-          if (f)
-            putc(c, f);
-*/
-    if (!((filename[i].find("../") != string::npos) || (filename[i].find("..\\") != string::npos)))
-    {
-          f=fopen(filename[i].c_str(), "wb");
-          if (!f)
-            printf("cannot create, skipping...\n");
-          for (long j=0; j<size; ++j) {
-            int c=e.decode();
-            if (f)
-              putc(c, f);
-      }
-         }
-    else
-    {
-      printf("cannot create file.\n");
-      printf("Directory traversal attack found while trying to create '%s' file\n", filename[i].c_str());
-
-      exit(EXIT_FAILURE);
-    }
-/*end of security update*/
-        if (f) {
-          printf("extracted\n");
-          fclose(f);
+        // Read PROGNAME " -m\r\n" at start of archive
+        string s = getline(archive);
+        if (s.substr(0, string(PROGNAME).size()) != PROGNAME) {
+            printf("Archive %s is not in KGB Archiver format\n", argv[1]);
+            return 1;
         }
-      }
-    }
-    compressed_bytes=ftell(archive);
-    fclose(archive);
-  }
 
-  // Compress files
-  else {
-  _mode = 1;
-    // Read file names from command line, input or @file with list of files
-    if (argc>2)
-      for (int i=2; i<argc; ++i) {//@sth: if @sth exists, compress it; if not, find file sth
-        if(argv[i][0]=='@'&&argv[i][1]!='\0') {
-            string fname=""; FILE* File;
-            File=fopen(argv[i],"r");
-            if(!File) {//checks if file @sth.ext does not exist
-               for(int a=1; a<strlen(argv[i]); a++)
-                  fname+=argv[i][a];
-               File=fopen(fname.c_str(),"r");
-               if(!File) {
-                  printf("Cannot find directive file %s.\n",fname.c_str());
-                  continue;
-               }
-               else {
-                  char fchar=' ';
-                  string sWork="";
-                  while(true)
-                  {
-                     fchar=fgetc(File);
-                     if(feof(File)) {
-                        if(sWork!="")
-                           filename.push_back(sWork);
-                           break;
-                        }
-                     if(fchar>31&&fchar<127)
-                        sWork+=fchar;
-                     else if(fchar=='\n') {
-                        if(sWork!="") {
-                           filename.push_back(sWork);
-                           sWork="";
-                        }
-                     }
-                     else {
-                        printf("The file %s is not valid directive file%d.\n",fname.c_str(),fchar);
-                        break;
-                     }
-                  }
-                  continue;
-               }
-               fclose(File);
+        // Get option -m where m is a digit
+        if (s.size() > 2 && s[s.size() - 2] == '-') {
+            int c = s[s.size() - 1];
+            if (c >= '0' && c <= '9')
+                MEM = c - '0';
+        }
+        printf("Extracting archive " PROGNAME " -%d %s ...\n", MEM, argv[1]);
+
+        // Read "size filename" in "%d\t%s\r\n" format
+        while (true) {
+            string s = getline(archive);
+            if (s.size() > 1) {
+                filesize.push_back(atol(s.c_str()));
+                string::iterator tab = find(s.begin(), s.end(), '\t');
+                if (tab != s.end())
+                    filename.push_back(string(tab + 1, s.end()));
+                else
+                    filename.push_back("");
             }
             else
-               fclose(File);
-           }
-           filename.push_back(argv[i]);
+                break;
         }
+
+        // Test end of header for "\f\0"
+        {
+            int c1 = 0, c2 = 0;
+            if ((c1 = getc(archive)) != '\f' || (c2 = getc(archive)) != 0) {
+                printf("%s: Incorrect format of file header %d %d\n", argv[1], c1, c2);
+                return 1;
+            }
+        }
+
+        // Extract files from archive data
+        Transformer e(DECOMPRESS, archive);
+        for (int i = 0; i < int(filename.size()); ++i) {
+            printf("%10ldKB %s: ", filesize[i] / 1024, filename[i].c_str());
+
+            // Compare with existing file
+            FILE* f = fopen(filename[i].c_str(), "rb");
+            const long size = filesize[i];
+            uncompressed_bytes += size;
+            if (f) {
+                bool different = false;
+                for (long j = 0; j < size; ++j) {
+                    int c1 = e.decode();
+                    int c2 = getc(f);
+                    if (!different && c1 != c2) {
+                        printf("different: offset %ld, archive=%d file=%d\n", j, c1, c2);
+                        different = true;
+                    }
+                }
+                if (!different)
+                    printf("equal\n");
+                fclose(f);
+            }
+
+            // Extract to new file
+            else {
+/* security bug fixed by Joxean Koret, 1/04/2006, Thanks!*/
+                // f = fopen(filename[i].c_str(), "wb");
+                // if (!f)
+                //     printf("cannot create, skipping...\n");
+                // for (long j = 0; j < size; ++j) {
+                //     int c = e.decode();
+                //     if (f)
+                //         putc(c, f);
+
+                if (!((filename[i].find("../") != string::npos) ||
+                      (filename[i].find("..\\") != string::npos))) {
+                    f = fopen(filename[i].c_str(), "wb");
+                    if (!f)
+                        printf("cannot create, skipping...\n");
+                    for (long j = 0; j < size; ++j) {
+                        int c = e.decode();
+                        if (f)
+                            putc(c, f);
+                    }
+                }
+                else {
+                    printf("cannot create file.\n");
+                    printf("Directory traversal attack found while trying to create '%s' file\n", filename[i].c_str());
+
+                    exit(EXIT_FAILURE);
+                }
+/*end of security update*/
+                if (f) {
+                    printf("extracted\n");
+                    fclose(f);
+                }
+            }
+        }
+        compressed_bytes = ftell(archive);
+        fclose(archive);
+    }
+
+    // Compress files
     else {
-      printf(
-        "Type filenames to compression, finish empty line:\n");
-      while (true) {
-        string s=getline(stdin);
-        if (s=="")
-          break;
-        else
-          filename.push_back(s);
-      }
-    }
-
-    // Get file sizes
-    for (int i=0; i<int(filename.size()); ++i) {
-      FILE* f=fopen(filename[i].c_str(), "rb");
-      if (!f) {
-        printf("File not found, skipping: %s\n",
-          filename[i].c_str());
-        filesize.push_back(-1);
-      }
-      else {
-        fseek(f, 0L, SEEK_END);
-        filesize.push_back(ftell(f));
-        fclose(f);
-      }
-    }
-    if (filesize.empty() || *max_element(filesize.begin(), filesize.end())<0){
-      printf("Nothing to compress, archive won't be created.\n");
-      return 1;
-    }
-
-    // Write header
-    archive=fopen(argv[1], "wb");
-    if (!archive) {
-      printf("Cannot create archive: %s\n", argv[1]);
-      return 1;
-    }
-    fprintf(archive, PROGNAME " -%d\r\n", MEM);
-    for (int i=0; i<int(filename.size()); ++i) {
-      if (filesize[i]>=0)
-        fprintf(archive, "%ld\t%s\r\n", filesize[i], filename[i].c_str());
-    }
-    putc(032, archive);  // MSDOS EOF
-    putc('\f', archive);
-    putc(0, archive);
-
-    // Write data
-    Transformer e(COMPRESS, archive);
-    long file_start=ftell(archive);
-    for (int i=0; i<int(filename.size()); ++i) {
-      const long size=filesize[i];
-      if (size>=0) {
-        uncompressed_bytes+=size;
-        printf("%-23s %10ldKB -> ", filename[i].c_str(), size/1024);
-        FILE* f=fopen(filename[i].c_str(), "rb");
-        int c;
-        for (long j=0; j<size; ++j) {
-          if (f)
-            c=getc(f);
-          else
-            c=0;
-          e.encode(c);
+        _mode = 1;
+        // Read file names from command line, input or @file with list of files
+        if (argc > 2)
+            for (int i = 2; i < argc; ++i) {//@sth: if @sth exists, compress it; if not, find file sth
+                if(argv[i][0] == '@' && argv[i][1] != '\0') {
+                    string fname = "";
+                    FILE* File;
+                    File = fopen(argv[i], "r");
+                    if (!File) {
+                        for (int a = 1; a < strlen(argv[i]); a++)
+                            fname += argv[i][a];
+                        File = fopen(fname.c_str(), "r");
+                        if (!File) {
+                            printf("Cannot find directive file %s.\n", fname.c_str());
+                            continue;
+                        }
+                        else {
+                            char fchar = ' ';
+                            string sWork = "";
+                            while (true) {
+                                fchar = fgetc(File);
+                                if (feof(File)) {
+                                    if (sWork != "")
+                                        filename.push_back(sWork);
+                                    break;
+                                }
+                                if (fchar > 31 && fchar < 127)
+                                    sWork += fchar;
+                                else if (fchar == '\n') {
+                                    if (sWork != "") {
+                                        filename.push_back(sWork);
+                                        sWork = "";
+                                    }
+                                }
+                                else {
+                                    printf("The file %s is not valid directive file%d.\n", fname.c_str(), fchar);
+                                    break;
+                                }
+                            }
+                            continue;
+                        }
+                        fclose(File);
+                    }
+                    else
+                        fclose(File);
+                }
+                filename.push_back(argv[i]);
+            }
+        else {
+            printf("Type filenames to compression, finish empty line:\n");
+            while (true) {
+                string s = getline(stdin);
+                if (s == "")
+                    break;
+                else
+                    filename.push_back(s);
+            }
         }
-        if (f)
-          fclose(f);
-        printf("%ldKB\n", (ftell(archive)-file_start)/1024);
-        file_start=ftell(archive);
-      }
-    }
-    e.flush();
-    compressed_bytes=ftell(archive);
-    fclose(archive);
-  }
 
-  // Report statistics
-  const double elapsed_time =
-    double(clock()-programChecker.start_time())/CLOCKS_PER_SEC;
-if(_mode)
-  printf("%dKB -> %dKB w %1.2fs.", uncompressed_bytes/1024, compressed_bytes/1024,
-    elapsed_time);
-else if(!_mode)
-  printf("%dKB -> %dKB w %1.2fs.", compressed_bytes/1024, uncompressed_bytes/1024,
-    elapsed_time);
-  if (uncompressed_bytes>0 && elapsed_time>0) {
-    printf(" (%1.2f%% czas: %1.0f KB/s)",
-      compressed_bytes*100.0/uncompressed_bytes,
-      uncompressed_bytes/(elapsed_time*1000.0));
-  }
-  printf("\n");
-  return 0;
+        // Get file sizes
+        for (int i = 0; i < int(filename.size()); ++i) {
+            FILE* f = fopen(filename[i].c_str(), "rb");
+            if (!f) {
+                printf("File not found, skipping: %s\n", filename[i].c_str());
+                filesize.push_back(-1);
+            }
+            else {
+                fseek(f, 0L, SEEK_END);
+                filesize.push_back(ftell(f));
+                fclose(f);
+            }
+        }
+        if (filesize.empty() || *max_element(filesize.begin(), filesize.end()) < 0){
+            printf("Nothing to compress, archive won't be created.\n");
+            return 1;
+        }
+
+        // Write header
+        archive = fopen(argv[1], "wb");
+        if (!archive) {
+            printf("Cannot create archive: %s\n", argv[1]);
+            return 1;
+        }
+        fprintf(archive, PROGNAME " -%d\r\n", MEM);
+        for (int i = 0; i < int(filename.size()); ++i) {
+            if (filesize[i] >= 0)
+                fprintf(archive, "%ld\t%s\r\n", filesize[i], filename[i].c_str());
+        }
+        putc(032, archive);  // MSDOS EOF
+        putc('\f', archive);
+        putc(0, archive);
+
+        // Write data
+        Transformer e(COMPRESS, archive);
+        long file_start = ftell(archive);
+        for (int i = 0; i < int(filename.size()); ++i) {
+            const long size = filesize[i];
+            if (size >= 0) {
+                uncompressed_bytes += size;
+                printf("%-23s %10ldKB -> ", filename[i].c_str(), size / 1024);
+                FILE* f = fopen(filename[i].c_str(), "rb");
+                int c;
+                for (long j = 0; j < size; ++j) {
+                    if (f)
+                        c = getc(f);
+                    else
+                        c = 0;
+                    e.encode(c);
+                }
+                if (f)
+                    fclose(f);
+                printf("%ldKB\n", (ftell(archive) - file_start) / 1024);
+                file_start = ftell(archive);
+            }
+        }
+        e.flush();
+        compressed_bytes = ftell(archive);
+        fclose(archive);
+    }
+
+    // Report statistics
+    const double elapsed_time = double(clock() - programChecker.start_time()) / CLOCKS_PER_SEC;
+    if (1 == _mode)
+        printf("%dKB -> %dKB w %1.2fs.", uncompressed_bytes / 1024, compressed_bytes / 1024, elapsed_time);
+    else if (0 == _mode)
+        printf("%dKB -> %dKB w %1.2fs.", compressed_bytes / 1024, uncompressed_bytes / 1024, elapsed_time);
+    if (uncompressed_bytes > 0 && elapsed_time > 0) {
+        printf(" (%1.2f%% czas: %1.0f KB/s)", compressed_bytes * 100.0 / uncompressed_bytes, uncompressed_bytes / (elapsed_time * 1000.0));
+    }
+    printf("\n");
+    return 0;
 }
