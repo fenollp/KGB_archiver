@@ -1840,7 +1840,7 @@ main (int argc, char** argv) {
                     FILE* File;
                     File = fopen(argv[i], "r");
                     if (!File) {
-                        for (int a = 1; a < strlen(argv[i]); a++)
+                        for (size_t a = 1; a < strlen(argv[i]); a++)
                             fname += argv[i][a];
                         File = fopen(fname.c_str(), "r");
                         if (!File) {
