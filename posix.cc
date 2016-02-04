@@ -658,7 +658,7 @@ Mixer::update (int y) {
     if (s0 > 0 && s1 > 0) {
         const U32 s = s0 + s1;
         const U32 sy = y ? s1 : s0;
-        const U32 sy1 = 0xffffffff / sy + (rnd() & 1023) >> 10;
+        const U32 sy1 = (0xffffffff / sy + (rnd() & 1023)) >> 10;
         const U32 s1 = 0xffffffff / s +(rnd() & 1023) >> 10;
         for (int i = 0; i < n; ++i) {
             const int dw = int((y ? bc1[i] : bc0[i]) * sy1
