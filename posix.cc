@@ -444,7 +444,7 @@ public:
     }
     void
     init () {
-        N = 1 << 19 + MEM - (MEM >= 6);
+        N = 1 << (19 + MEM - (MEM >= 6));
         buf = (U8*) calloc(N, 1);
         if (!buf)
             handler();
