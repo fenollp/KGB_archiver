@@ -793,7 +793,7 @@ public:
                 t[cxt].n = 1;
             }
         }
-        cxt = h >> 32 - N;
+        cxt = h >> (32 - N);
     }
     void
     add () {
