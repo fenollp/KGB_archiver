@@ -1710,10 +1710,10 @@ main (int argc, char** argv) {
     int uncompressed_bytes = 0, compressed_bytes = 0;  // Input, output sizes
 
     // Extract files
-    FILE* archive=fopen(argv[1], "rb");
+    FILE* archive = fopen(argv[1], "rb");
     if (archive) {
         _mode = 0;
-        if (argc>2) {
+        if (argc > 2) {
             printf("File %s already exists\n", argv[1]);
             return 1;
         }
@@ -1759,7 +1759,7 @@ main (int argc, char** argv) {
 
         // Extract files from archive data
         Transformer e(DECOMPRESS, archive);
-        for (int i = 0; i < int(filename.size()); ++i) {
+        for (unsigned i = 0; i < filename.size(); ++i) {
             printf("%10ldKB %s: ", filesize[i] / 1024, filename[i].c_str());
 
             // Compare with existing file
@@ -1826,12 +1826,12 @@ main (int argc, char** argv) {
         // Read file names from command line, input or @file with list of files
         if (argc > 2)
             for (int i = 2; i < argc; ++i) {//@sth: if @sth exists, compress it; if not, find file sth
-                if(argv[i][0] == '@' && argv[i][1] != '\0') {
+                if (argv[i][0] == '@' && argv[i][1] != '\0') {
                     std::string fname = "";
                     FILE* File;
                     File = fopen(argv[i], "r");
                     if (!File) {
-                        for (size_t a = 1; a < strlen(argv[i]); a++)
+                        for (unsigned a = 1; a < strlen(argv[i]); a++)
                             fname += argv[i][a];
                         File = fopen(fname.c_str(), "r");
                         if (!File) {
@@ -1882,7 +1882,7 @@ main (int argc, char** argv) {
         }
 
         // Get file sizes
-        for (int i = 0; i < int(filename.size()); ++i) {
+        for (unsigned i = 0; i < filename.size(); ++i) {
             FILE* f = fopen(filename[i].c_str(), "rb");
             if (!f) {
                 printf("File not found, skipping: %s\n", filename[i].c_str());
@@ -1906,7 +1906,7 @@ main (int argc, char** argv) {
             return 1;
         }
         fprintf(archive, PROGNAME " -%d\r\n", MEM);
-        for (int i = 0; i < int(filename.size()); ++i) {
+        for (unsigned i = 0; i < filename.size(); ++i) {
             if (filesize[i] >= 0)
                 fprintf(archive, "%ld\t%s\r\n", filesize[i], filename[i].c_str());
         }
@@ -1917,7 +1917,7 @@ main (int argc, char** argv) {
         // Write data
         Transformer e(COMPRESS, archive);
         long file_start = ftell(archive);
-        for (int i = 0; i < int(filename.size()); ++i) {
+        for (unsigned i = 0; i < filename.size(); ++i) {
             const long size = filesize[i];
             if (size >= 0) {
                 uncompressed_bytes += size;
