@@ -19,7 +19,7 @@ debug: $(SRC)
 file = README.md
 define quick_test_1
 quick-test-$(1): $(EXE)
-	bash -c 'printf "\e[1;3m%s\e[0m\n" "#$(1)" && $(TIME) ./$(EXE) -$(1) $(file).kgb $(file) && rm $(file) && $(TIME) ./$(EXE) $(file).kgb && rm $(file).kgb && exit $$(git status --porcelain -- $(file) | wc -l)'
+	@bash -c 'printf "\e[1;3m%s\e[0m\n" "#$(1)" && $(TIME) ./$(EXE) -$(1) $(file).kgb $(file) && rm $(file) && $(TIME) ./$(EXE) $(file).kgb && rm $(file).kgb && exit $$(git status --porcelain -- $(file) | wc -l)'
 endef
 $(foreach mem,0 1 2 3 4 5 6 7 8 9,$(eval $(call quick_test_1,$(mem))))
 
