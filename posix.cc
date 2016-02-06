@@ -5,6 +5,7 @@
 #include <cmath>
 #include <ctime>
 #include <cassert>
+#include <cstdint>
 #include <cstring> // memset
 #include <string>
 #include <vector>
