@@ -2,17 +2,18 @@ SRC = posix.cc
 EXE = KGB_arch
 
 CXXFLAGS = -O3
-DEV_CXXFLAGS = -Wall -Werror -Wextra -pedantic --std=c++0x -g3 -ggdb3
+DEV_CXXFLAGS = -Wall -Werror -Wextra -pedantic -g3 -ggdb3
+COMMON_FLAGS = -DPROGNAME='"$(EXE)"' -std=c++0x
 TIME ?= time
 
 all: $(EXE)
 
 $(EXE): $(SRC)
-	$(CXX) -DPROGNAME='"$(EXE)"' $(CXXFLAGS) -o $(EXE) $<
+	$(CXX) $(COMMON_FLAGS) $(CXXFLAGS) -o $(EXE) $<
 	$(MAKE) -C . quick-test
 
 debug: $(SRC)
-	$(CXX) -DPROGNAME='"$(EXE)"' $(DEV_CXXFLAGS) -o $(EXE) $<
+	$(CXX) $(COMMON_FLAGS) $(DEV_CXXFLAGS) -o $(EXE) $<
 	$(MAKE) -C . quick-test
 
 
