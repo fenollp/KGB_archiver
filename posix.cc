@@ -16,11 +16,6 @@
 
 int MEM = 3;        // Use about 6 MB * 2^MEM bytes of memory
 
-// 8-32 bit unsigned types, adjust as appropriate
-typedef unsigned char U8;
-typedef unsigned short U16;
-typedef unsigned int U32;
-
 // Fail if out of memory
 void
 handler () {
@@ -41,9 +36,9 @@ public:
         std::set_new_handler(handler);
 
         // Test the compiler for common but not guaranteed assumptions
-        assert(sizeof (U8) == 1);
-        assert(sizeof (U16) == 2);
-        assert(sizeof (U32) == 4);
+        assert(sizeof (uint8_t) == 1);
+        assert(sizeof (uint16_t) == 2);
+        assert(sizeof (uint32_t) == 4);
         assert(sizeof (int) == 4);
     }
     clock_t start_time () const { return start; }  // When the program started
@@ -54,11 +49,12 @@ public:
 // 32-bit random number generator based on r(i) = r(i-24) ^ r(i-55)
 
 class Random {
-    U32 table[55];  // Last 55 random values
+    uint32_t table[55];  // Last 55 random values
     int i;  // Index of current random value in table
 public:
     Random ();
-    U32 operator() () {  // Return 32-bit random number
+    uint32_t
+    operator() () {  // Return 32-bit random number
         if (++i == 55)
             i = 0;
         if (i >= 24)
@@ -82,7 +78,7 @@ Random::Random ()  // Seed the table
 // Hash functoid, returns 32 bit hash of 1-4 chars
 
 class Hash {
-    U32 table[8][256];  // Random number table
+    uint32_t table[8][256];  // Random number table
 public:
     Hash () {
         for (int i = 7; i >= 0; --i)
@@ -90,16 +86,16 @@ public:
                 table[i][j] = rnd();
         assert(table[0][255] == 3610026313LU);
     }
-    U32 operator() (U8 i0) const {
+    uint32_t operator() (uint8_t i0) const {
         return table[0][i0];
     }
-    U32 operator() (U8 i0, U8 i1) const {
+    uint32_t operator() (uint8_t i0, uint8_t i1) const {
         return table[0][i0] + table[1][i1];
     }
-    U32 operator() (U8 i0, U8 i1, U8 i2) const {
+    uint32_t operator() (uint8_t i0, uint8_t i1, uint8_t i2) const {
         return table[0][i0] + table[1][i1] + table[2][i2];
     }
-    U32 operator() (U8 i0, U8 i1, U8 i2, U8 i3) const {
+    uint32_t operator() (uint8_t i0, uint8_t i1, uint8_t i2, uint8_t i3) const {
         return table[0][i0] + table[1][i1] + table[2][i2] + table[3][i3];
     }
 } hash;
@@ -117,12 +113,12 @@ in a context.
 */
 
 class Counter {
-    U8 state;
+    uint8_t state;
     struct E {      // State table entry
-        U16 n0, n1;   // get0(), get1()
-        U8 s00, s01;  // Next state on input 0 without/with probabilistic incr.
-        U8 s10, s11;  // Next state on input 1
-        U32 p0, p1;   // Probability of increment x 2^32 on inputs 0, 1
+        uint16_t n0, n1;   // get0(), get1()
+        uint8_t s00, s01;  // Next state on input 0 without/with probabilistic incr.
+        uint8_t s10, s11;  // Next state on input 1
+        uint32_t p0, p1;   // Probability of increment x 2^32 on inputs 0, 1
     };
     static E table[];  // State table
 public:
@@ -427,29 +423,29 @@ It stores all the input so far in a rotating buffer of the last N bytes
   ch.pos(c, i) -- Position of the i'th to last occurrence, i = 0 to 3
 */
 class Ch {
-    U32 N;  // Buffer size
-    U8 *buf;  // [N] last N bytes
-    U32 p;  // pos()
-    U32 bp;  // bpos()
-    U32 hi_nibble, lo_nibble;  // hi(), lo()
-    U32 lpos[256][4];  // pos(c, i)
+    uint32_t N;  // Buffer size
+    uint8_t *buf;  // [N] last N bytes
+    uint32_t p;  // pos()
+    uint32_t bp;  // bpos()
+    uint32_t hi_nibble, lo_nibble;  // hi(), lo()
+    uint32_t lpos[256][4];  // pos(c, i)
 public:
     Ch (): N(0), buf(0), p(0), bp(0), hi_nibble(0), lo_nibble(1) {
-        memset(lpos, 0, 256 * 4 * sizeof (U32));
+        memset(lpos, 0, 256 * 4 * sizeof (uint32_t));
     }
     void
     init () {
         N = 1 << (19 + MEM - (MEM >= 6));
-        buf = (U8*) calloc(N, 1);
+        buf = (uint8_t *) calloc(N, 1);
         if (!buf)
             handler();
         buf[0] = 1;
     }
-    U32 operator() (int i) const { return buf[(p - i) & (N - 1)]; }
-    U32 operator() () const { return buf[p & (N - 1)]; }
+    uint32_t operator() (int i) const { return buf[(p - i) & (N - 1)]; }
+    uint32_t operator() () const { return buf[p & (N - 1)]; }
     void
     update (int y) {
-        U8& r = buf[p & (N - 1)];
+        uint8_t& r = buf[p & (N - 1)];
         r += r + y;
         if (++bp == 8) {
             lpos[r][3] = lpos[r][2];
@@ -465,12 +461,12 @@ public:
             lo_nibble = 1;
         }
     }
-    U32 pos () const { return p; }
-    U32 pos (U8 c, int i = 0) const { return lpos[c][i & 3]; }
-    U32 bpos () const { return bp; }
-    U32 operator[] (int i) const { return buf[i & (N - 1)]; }
-    U32 hi () const { return hi_nibble; }
-    U32 lo () const { return lo_nibble; }
+    uint32_t pos () const { return p; }
+    uint32_t pos (uint8_t c, int i = 0) const { return lpos[c][i & 3]; }
+    uint32_t bpos () const { return bp; }
+    uint32_t operator[] (int i) const { return buf[i & (N - 1)]; }
+    uint32_t hi () const { return hi_nibble; }
+    uint32_t lo () const { return lo_nibble; }
 } ch;  // Global object
 
 //////////////////////////// Hashtable ////////////////////////////
@@ -494,28 +490,28 @@ Normally there should be 4 calls to ht(c) after each ht.set(h).
 template<class T>
 class Hashtable {
 private:
-    const U32 N;  // log2 size in bytes
+    const uint32_t N;  // log2 size in bytes
     struct HashElement {
-        U8 checksum;  // Checksum of context, used to detect collisions
+        uint8_t checksum;  // Checksum of context, used to detect collisions
         T c[15];  // 1-byte counters in minor context c
         HashElement (): checksum(0) {}
     };
     HashElement *table;  // [2^(N-4)]
-    U32 cxt;  // major context
+    uint32_t cxt;  // major context
 public:
-    Hashtable (U32 n);
+    Hashtable (uint32_t n);
 
   // Set major context to h, a 32 bit hash.  Create a new element if needed.
     void
-    set (U32 h) {
+    set (uint32_t h) {
 
     // Search 4 elements for h within a 64-byte cache line
-        const U8 checksum = (h >> 24) ^ h;
-        const U32 lo = (h >> (32 - N)) & -4;
-        const U32 hi = lo + 4;
-        U32 i;
+        const uint8_t checksum = (h >> 24) ^ h;
+        const uint32_t lo = (h >> (32 - N)) & -4;
+        const uint32_t hi = lo + 4;
+        uint32_t i;
         for (i = lo; i < hi; ++i) {
-            U32 pri = table[i].c[0].priority();
+            uint32_t pri = table[i].c[0].priority();
             if (table[i].checksum == checksum) { // found
                 cxt = i;
                 break;
@@ -551,7 +547,7 @@ public:
 
     // Get element c (1-15) of bucket cxt
     T&
-    operator() (U32 c) {
+    operator() (uint32_t c) {
         --c;
         assert(c < 15);
         return table[cxt].c[c];
@@ -559,7 +555,7 @@ public:
 };
 
 template <class T>
-Hashtable<T>::Hashtable (U32 n)
+Hashtable<T>::Hashtable (uint32_t n)
     : N(n > 4 ? n - 4 : 1), table(0), cxt(0)
 {
     assert(sizeof (HashElement) == 16);
@@ -593,15 +589,15 @@ Hashtable<T>::Hashtable (U32 n)
 class Mixer {
     enum {N = 64};  // Max writes before update
     const int C;
-    U32 *bc0, *bc1;  // 0,1 counts for N models
-    U32 (*wt)[N];  // wt[c][n] is n'th weight in context c
+    uint32_t *bc0, *bc1;  // 0,1 counts for N models
+    uint32_t (*wt)[N];  // wt[c][n] is n'th weight in context c
     int n;  // number of bit count pairs written
     int c;  // weight set context
 public:
     Mixer (int C_);
     ~Mixer ();
-    U32 getN () const { return N; }
-    U32 getC () const { return C; }
+    uint32_t getN () const { return N; }
+    uint32_t getC () const { return C; }
 
     // Store next counts n0, n1 from model
     void
@@ -629,7 +625,7 @@ Mixer::predict (int c_) {
     c = c_;
     int n0 = 1, n1 = n0;
     for (int j = 0; j < n; ++j) {
-        U32 w = wt[c][j];
+        uint32_t w = wt[c][j];
         n0 += bc0[j] * w;
         n1 += bc1[j] * w;
     }
@@ -645,16 +641,16 @@ Mixer::predict (int c_) {
 // Adjust the weights by gradient descent to reduce cost of bit y
 void
 Mixer::update (int y) {
-    U32 s0 = 0, s1 = 0;
+    uint32_t s0 = 0, s1 = 0;
     for (int i = 0; i < n; ++i) {
         s0 += (wt[c][i] + 48) * bc0[i];
         s1 += (wt[c][i] + 48) * bc1[i];
     }
     if (s0 > 0 && s1 > 0) {
-        const U32 s = s0 + s1;
-        const U32 sy = y ? s1 : s0;
-        const U32 sy1 = (0xffffffff / sy + (rnd() & 1023)) >> 10;
-        const U32 s1 = (0xffffffff / s +(rnd() & 1023)) >> 10;
+        const uint32_t s = s0 + s1;
+        const uint32_t sy = y ? s1 : s0;
+        const uint32_t sy1 = (0xffffffff / sy + (rnd() & 1023)) >> 10;
+        const uint32_t s1 = (0xffffffff / s +(rnd() & 1023)) >> 10;
         for (int i = 0; i < n; ++i) {
             const int dw = int((y ? bc1[i] : bc0[i]) * sy1
                                - (bc0[i] + bc1[i]) * s1
@@ -666,7 +662,7 @@ Mixer::update (int y) {
 }
 
 Mixer::Mixer (int C_)
-    : C(C_), bc0(new U32[N]), bc1(new U32[N]), wt(new U32[C_][N]), n(0), c(0)
+    : C(C_), bc0(new uint32_t[N]), bc1(new uint32_t[N]), wt(new uint32_t[C_][N]), n(0), c(0)
 {
     for (int i = 0; i < C; ++i) {
         for (int j = 0; j < N; ++j)
@@ -720,9 +716,9 @@ public:
     }
     int
     predict () {
-        U32 p1 = m1.predict((ch(1) >> 5) + 8 * (ch.pos(0, 3) < ch.pos(32, 3)));
+        uint32_t p1 = m1.predict((ch(1) >> 5) + 8 * (ch.pos(0, 3) < ch.pos(32, 3)));
         if (MEM >= MINMEM) {
-            U32 p2 = m2.predict((ch(1) >> 6) + 4 * (ch(2) >> 6));
+            uint32_t p2 = m2.predict((ch(1) >> 6) + 4 * (ch(2) >> 6));
             return (p1 + p2) / 2;
         }
         else
@@ -734,8 +730,8 @@ public:
         if (MEM >= MINMEM)
             m2.update(y);
     }
-    U32 getC () const { return 256; }
-    U32 getN () const {return m1.getN(); }
+    uint32_t getC () const { return 256; }
+    uint32_t getN () const { return m1.getN(); }
 };
 
 MultiMixer mixer;
@@ -758,11 +754,11 @@ of bytes are read. */
 class CounterMap1 {
     const int N;
     struct S {
-        U8 c;  // char
-        U8 n;  // count
+        uint8_t c;  // char
+        uint8_t n;  // count
     };
     S* t;  // cxt -> c repeated last n times
-    U32 cxt;
+    uint32_t cxt;
 public:
     CounterMap1 (int n)
         : N(n > 1 ? n - 1 : 1), cxt(0)
@@ -773,13 +769,13 @@ public:
             handler();
         }
     void
-    update (U32 h) {
+    update (uint32_t h) {
         if (ch.bpos() == 0) {
             if (t[cxt].n == 0) {
                 t[cxt].n = 1;
                 t[cxt].c = ch(1);
             }
-            else if ((U32)(t[cxt].c) == ch(1)) {
+            else if ((uint32_t)(t[cxt].c) == ch(1)) {
                 if (t[cxt].n < 255)
                     ++t[cxt].n;
             }
@@ -792,7 +788,7 @@ public:
     }
     void
     add () {
-        if ((U32) ((t[cxt].c + 256) >> (8 - ch.bpos())) == ch()) {
+        if ((uint32_t) ((t[cxt].c + 256) >> (8 - ch.bpos())) == ch()) {
             if ((t[cxt].c >> (7 - ch.bpos())) & 1)
                 mixer.add(0, t[cxt].n);
             else
@@ -809,14 +805,14 @@ public:
 // Uses a nibble-oriented hash table of contexts (counter state)
 class CounterMap2 {
 private:
-    const U32 N2;  // Size of ht2 in elements
-    U32 cxt;  // Major context
+    const uint32_t N2;  // Size of ht2 in elements
+    uint32_t cxt;  // Major context
     Hashtable<Counter> ht2;  // Secondary hash table
     Counter* cp[8];  // Pointers into ht2 or 0 if not used
 public:
     CounterMap2 (int n);  // Use 2^n bytes memory
     void add ();
-    void update (U32 h);
+    void update (uint32_t h);
     void
     write () {
         mixer.write(0, 0);
@@ -832,7 +828,7 @@ CounterMap2::CounterMap2 (int n): N2(n), cxt(0), ht2(N2) {
 // Predict the next bit given the bits so far in ch()
 void
 CounterMap2::add () {
-    const U32 bcount = ch.bpos();
+    const uint32_t bcount = ch.bpos();
     if (bcount == 4) {
         cxt ^= hash(ch.hi(), cxt);
         ht2.set(cxt);
@@ -844,8 +840,8 @@ CounterMap2::add () {
 // After 8 predictions, update the models with the last input char, ch(1),
 // then set the new context hash to h
 void
-CounterMap2::update (U32 h) {
-    const U32 c = ch(1);
+CounterMap2::update (uint32_t h) {
+    const uint32_t c = ch(1);
 
     // Update the secondary context
     for (int i = 0; i < 8; ++i) {
@@ -866,7 +862,7 @@ class CounterMap3 {
 public:
     CounterMap3 (int n): cm1(MEM >= MINMEM ? n - 2 : 0), cm2(n) {}
     void
-    update (U32 h) {
+    update (uint32_t h) {
         if (MEM >= MINMEM)
             cm1.update(h);
         cm2.update(h);
@@ -915,7 +911,7 @@ class CharModel: public Model {
     enum {N = 10};        // Number of models
     Counter *t0, *t1;   // Model orders 0, 1 [256], [65536]
     CounterMap t2, t3, t4, t5, t6, t7, t8, t9;  // Model orders 2-9
-    U32 *cxt;           // Context hashes [N]
+    uint32_t *cxt;           // Context hashes [N]
     Counter *cp0, *cp1; // Pointers to counters in t0, t1
 public:
     CharModel (): t0(new Counter[256]), t1(new Counter[65536]),
@@ -925,11 +921,11 @@ public:
                   t7((MEM >= 3) * (MEM + 18)),
                   t8((MEM >= 5) * (MEM + 18 - (MEM >= 6))),
                   t9((MEM >= 5) * (MEM + 18 - (MEM >= 6))),
-                  cxt(new U32[N])
+                  cxt(new uint32_t[N])
         {
         cp0 = &t0[0];
         cp1 = &t1[0];
-        memset(cxt, 0, N * sizeof (U32));
+        memset(cxt, 0, N * sizeof (uint32_t));
         memset(t0, 0, 256 * sizeof (Counter));
         memset(t1, 0, 65536 * sizeof (Counter));
         }
@@ -996,13 +992,13 @@ an index (a hash table of pointers into ch). */
 class MatchModel: public Model {
     const int N;      // 2^N = hash table size
     enum {M = 4};     // Number of strings to match
-    U32 hash[2];      // Hashes of current context up to pos-1
-    U32 begin[M];     // Points to first matching byte
-    U32 end[M];       // Points to last matching byte + 1, 0 if no match
-    U32 *ptr;         // Hash table of pointers [2^(MEM+17)]
+    uint32_t hash[2];      // Hashes of current context up to pos-1
+    uint32_t begin[M];     // Points to first matching byte
+    uint32_t end[M];       // Points to last matching byte + 1, 0 if no match
+    uint32_t *ptr;         // Hash table of pointers [2^(MEM+17)]
 public:
-    MatchModel (): N(17 + MEM - (MEM >= 6)), ptr(new U32[1 << N]) {
-    memset(ptr, 0, (1 << N) * sizeof(U32));
+    MatchModel (): N(17 + MEM - (MEM >= 6)), ptr(new uint32_t[1 << N]) {
+    memset(ptr, 0, (1 << N) * sizeof(uint32_t));
     hash[0] = hash[1] = 0;
     for (int i = 0; i < M; ++i)
         begin[i] = end[i] = 0;
@@ -1016,7 +1012,7 @@ MatchModel::model () {
     if (ch.bpos() == 0) {  // New byte
         hash[0] = hash[0] * (16 * 56797157) + ch(1) + 1;  // Hash last 8 bytes
         hash[1] = hash[1] * (2 * 45684217) + ch(1) + 1;   // Hash last 32 bytes
-        U32 h = hash[0] >> (32 - N);
+        uint32_t h = hash[0] >> (32 - N);
         if ((hash[0] >> 28) == 0)
             h = hash[1] >> (32 - N);  // 1/16 of 8-contexts are hashed to 32 bytes
         for (int i = 0; i < M; ++i) {
@@ -1034,7 +1030,7 @@ MatchModel::model () {
                 end[i] = ptr[h];
                 if (end[i] > 0) {
                     begin[i] = end[i];
-                    U32 p = ch.pos();
+                    uint32_t p = ch.pos();
                     while (begin[i] > 0 && p > 0 && begin[i] != p + 1
                            && ch[begin[i] - 1] == ch[p - 1]) {
                         --begin[i];
@@ -1059,7 +1055,7 @@ MatchModel::model () {
     int n0 = 0, n1 = 0;
     for (int i = 0; i < M; ++i) {
         if (end[i]) {
-            U32 wt = end[i] - begin[i];
+            uint32_t wt = end[i] - begin[i];
             wt = wt * wt / 4;
             if (wt > 511)
                 wt = 511;
@@ -1226,8 +1222,8 @@ class WordModel: public Model {
     const int SIZE;
     enum {N = 3};
     CounterMap t0, t1, t2, t3, t4, t5;
-    U32 cxt[N];   // Hashes of last N words broken on whitespace
-    U32 word[N];  // Hashes of last N words of letters only, lower case
+    uint32_t cxt[N];   // Hashes of last N words broken on whitespace
+    uint32_t word[N];  // Hashes of last N words of letters only, lower case
 public:
     WordModel ()
         : SIZE((MEM >= 4) * (MEM + 17 - (MEM >=6 ))),
@@ -1278,8 +1274,8 @@ public:
 
 class ExeModel {
     struct S {
-        U32 a;  // absolute address, indexed on 8 low order bytes
-        U8 n;  // how many times?
+        uint32_t a;  // absolute address, indexed on 8 low order bytes
+        uint8_t n;  // how many times?
         S (): a(0), n(0) {}
     };
     S t[256];  // E8 history indexed on low order byte
@@ -1291,7 +1287,7 @@ public:
     // file offset, then store in table t indexed by its low byte
         if (ch.bpos() == 0) {
             if (ch(5) == 0xe8 && (ch(1) == 0 || ch(1) == 0xff)) {
-                U32 a = ch(4) + (ch(3) << 8) + (ch(2) << 16) + (ch(1) << 24) + ch.pos() - 5;
+                uint32_t a = ch(4) + (ch(3) << 8) + (ch(2) << 16) + (ch(1) << 24) + ch.pos() - 5;
                 int i = a & 0xff;
                 if (t[i].a == a && t[i].n < 255)
                     ++t[i].n;
@@ -1307,8 +1303,8 @@ public:
         if (ch(4) == 0xe8) {
             int i = (ch(3) + ch.pos() - 4) & 0xff;  // index in t
             if (t[i].n > 0) {
-                U32 r = t[i].a - ch.pos() + 4;  // predicted relative address
-                U32 ck = (((r & 0xff000000) >> 8) + 0x1000000) >> (24 - ch.bpos());
+                uint32_t r = t[i].a - ch.pos() + 4;  // predicted relative address
+                uint32_t ck = (((r & 0xff000000) >> 8) + 0x1000000) >> (24 - ch.bpos());
                 // ch(0) should be this if context matches so far
                 int y = (r >> (31 - ch.bpos())) & 1;  // predicted bit
                 if (ch(0) == ck && ch(1) == ((r >> 16) & 0xff)) {
@@ -1324,8 +1320,8 @@ public:
         if (ch(3) == 0xe8) {
             int i = (ch(2) + ch.pos() - 3) & 0xff;
             if (t[i].n > 0) {
-                U32 r = t[i].a - ch.pos() + 3;
-                U32 ck = ((r & 0xff0000) + 0x1000000) >> (24 - ch.bpos());
+                uint32_t r = t[i].a - ch.pos() + 3;
+                uint32_t ck = ((r & 0xff0000) + 0x1000000) >> (24 - ch.bpos());
                 int y = (r >> (23 - ch.bpos())) & 1;
                 if (ch(0) == ck && ch(1) == ((r >> 8) & 0xff)) {
                     if (y)
@@ -1340,8 +1336,8 @@ public:
         else if (ch(2) == 0xe8) {
             int i = (ch(1) + ch.pos() - 2) & 0xff;
             if (t[i].n > 0) {
-                U32 r = t[i].a - ch.pos() + 2;
-                U32 ck = ((r & 0xff00) + 0x10000) >> (16 - ch.bpos());
+                uint32_t r = t[i].a - ch.pos() + 2;
+                uint32_t ck = ((r & 0xff00) + 0x10000) >> (16 - ch.bpos());
                 int y = (r >> (15 - ch.bpos())) & 1;
                 if (ch(0) == ck) {
                     if (y)
@@ -1390,7 +1386,7 @@ class Predictor {
     // Scale probability p into a context in the range 0 to 1K-1 by
     // stretching the ends of the range.
     class SSEMap {
-        U16 table[PSCALE];
+        uint16_t table[PSCALE];
     public:
         int operator() (int p) const { return table[p]; }
         SSEMap ();
@@ -1398,7 +1394,7 @@ class Predictor {
 
     // Secondary source encoder element
     struct SSEContext {
-        U8 c1, n;  // Count of 1's, count of bits
+        uint8_t c1, n;  // Count of 1's, count of bits
         int p () const { return PSCALE * (c1 * 64 + 1) / (n * 64 + 2); }
         void
         update (int y) {
@@ -1413,9 +1409,9 @@ class Predictor {
     };
 
     SSEContext (*sse)[SSE2 + 1];  // [SSE1][SSE2+1] context, mapped probability
-    U32 nextp;   // p()
-    U32 ssep;    // Output of sse
-    U32 context; // SSE context
+    uint32_t nextp;   // p()
+    uint32_t ssep;    // Output of sse
+    uint32_t context; // SSE context
 public:
     Predictor ();
     int p () const { return nextp; }  // Returns pr(y = 1) * PSCALE
@@ -1491,8 +1487,8 @@ Predictor::update (int y) {
     if (MEM >= 1) {
         context = (ch(0) * 4 + ch(1) / 64) * 2 + (ch.pos(0,3) < ch.pos(32,3));  // for SSE
         ssep = ssemap(nextp);
-        U32 wt = ssep % SSESCALE;
-        U32 i = ssep / SSESCALE;
+        uint32_t wt = ssep % SSESCALE;
+        uint32_t i = ssep / SSESCALE;
         nextp = (((sse[context][i].p() * (SSESCALE - wt) + sse[context][i + 1].p() * wt)
                   / SSESCALE) * 3 + nextp) / 4;
     }
@@ -1516,8 +1512,8 @@ private:
     Predictor predictor;
     const Mode mode;       // Compress or decompress?
     FILE* archive;         // Compressed data file
-    U32 x1, x2;            // Range, initially [0, 1), scaled by 2^32
-    U32 x;                 // Last 4 input bytes of archive.
+    uint32_t x1, x2;            // Range, initially [0, 1), scaled by 2^32
+    uint32_t x;                 // Last 4 input bytes of archive.
 public:
     Encoder (Mode m, FILE* f);
     void encode (int y);    // Compress bit y
@@ -1546,10 +1542,10 @@ inline
 void
 Encoder::encode (int y) {
     // Split the range
-    const U32 p = predictor.p() * (4096 / PSCALE) + 2048 / PSCALE; // P(1) * 4K
+    const uint32_t p = predictor.p() * (4096 / PSCALE) + 2048 / PSCALE; // P(1) * 4K
     assert(p < 4096);
-    const U32 xdiff = x2 - x1;
-    U32 xmid = x1;  // = x1+p*(x2-x1) multiply without overflow, round down
+    const uint32_t xdiff = x2 - x1;
+    uint32_t xmid = x1;  // = x1+p*(x2-x1) multiply without overflow, round down
     if (xdiff >= 0x4000000) xmid += (xdiff >> 12) * p;
     else if (xdiff >= 0x100000) xmid += ((xdiff >> 6) * p) >> 6;
     else xmid += (xdiff * p) >> 12;
@@ -1576,10 +1572,10 @@ inline
 int
 Encoder::decode () {
     // Split the range
-    const U32 p = predictor.p() * (4096 / PSCALE) + 2048 / PSCALE; // P(1) * 4K
+    const uint32_t p = predictor.p() * (4096 / PSCALE) + 2048 / PSCALE; // P(1) * 4K
     assert(p < 4096);
-    const U32 xdiff = x2 - x1;
-    U32 xmid = x1;  // = x1 + p * (x2 - x1) multiply without overflow, round down
+    const uint32_t xdiff = x2 - x1;
+    uint32_t xmid = x1;  // = x1 + p * (x2 - x1) multiply without overflow, round down
     if (xdiff >= 0x4000000) xmid += (xdiff >> 12) * p;
     else if (xdiff >= 0x100000) xmid += ((xdiff >> 6) * p) >> 6;
     else xmid += (xdiff * p) >> 12;
@@ -1642,9 +1638,9 @@ public:
         for (int i = 7; i >= 0; --i)
             e.encode((c >> i) & 1);
     }
-    U32
+    uint32_t
     decode () {
-        U32 c = 0;
+        uint32_t c = 0;
         for (int i = 0; i < 8; ++i)
             c = c + c + e.decode();
         return c;
