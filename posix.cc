@@ -10,14 +10,11 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <map>
 #undef hash
 
 #define PSCALE ((int) 4096)  // Integer scale for representing probabilities
 
 int MEM = 3;        // Use about 6 MB * 2^MEM bytes of memory
-
-template <class T> inline int size (const T& t) { return t.size(); }
 
 // 8-32 bit unsigned types, adjust as appropriate
 typedef unsigned char U8;
