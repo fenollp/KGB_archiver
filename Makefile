@@ -30,3 +30,4 @@ test: $(patsubst %, quick-test-%, 0 1 2 3 4 5 6 7 8 9)
 clean:
 	$(if $(wildcard $(EXE)), rm $(EXE))
 	$(if $(wildcard $(file).kgb), rm $(file).kgb)
+	$(if $(wildcard $(EXE).dSYM), rm -r $(EXE).dSYM)
