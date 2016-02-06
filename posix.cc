@@ -13,8 +13,6 @@
 #include <map>
 #undef hash
 
-using namespace std;
-
 #define PSCALE ((int) 4096)  // Integer scale for representing probabilities
 
 int MEM = 3;        // Use about 6 MB * 2^MEM bytes of memory
@@ -43,7 +41,7 @@ class ProgramChecker {
 public:
     ProgramChecker () {
         start = clock();
-        set_new_handler(handler);
+        std::set_new_handler(handler);
 
         // Test the compiler for common but not guaranteed assumptions
         assert(sizeof (U8) == 1);
@@ -664,7 +662,7 @@ Mixer::update (int y) {
             const int dw = int((y ? bc1[i] : bc0[i]) * sy1
                                - (bc0[i] + bc1[i]) * s1
                                + (rnd() & 255)) >> 8;
-            wt[c][i] = min(65535, max(1, int(wt[c][i] + dw)));
+            wt[c][i] = std::min(65535, std::max(1, int(wt[c][i] + dw)));
         }
     }
     n = 0;
@@ -1114,7 +1112,7 @@ RecordModel::model () {
         const int d3 = ch.pos(c, 2) - ch.pos(c, 3);
         if (d1 > 1 && d1 == d2 && d2 == d3) {
             if (d1 == repeat1)
-                swap(repeat1, repeat2);
+                std::swap(repeat1, repeat2);
             else if (d1 != repeat2) {
                 repeat1 = repeat2;
                 repeat2 = d1;
@@ -1124,7 +1122,7 @@ RecordModel::model () {
         // Compute context hashes
         int r1 = repeat1, r2 = repeat2;
         if (r1 > r2)
-            swap(r1, r2);
+            std::swap(r1, r2);
         t0.update(hash(ch(r1), ch(r1 * 2), r1));  // 2 above (shorter repeat)
         t1.update(hash(ch(1), ch(r1), r1));     // above and left
         t2.update(hash(ch(r1), ch.pos() % r1));   // above and pos
@@ -1166,7 +1164,7 @@ SparseModel::model () {
         t4.update(hash(ch(2), ch(3)));
         t5.update(hash(ch(2), ch(4)));
         t6.update(hash(ch(3), ch(4)));
-        const int g = min(255, int(ch.pos() - ch.pos(ch(1), 2))); // gap to prior ch1
+        const int g = std::min(255, int(ch.pos() - ch.pos(ch(1), 2))); // gap to prior ch1
         t7.update(hash(ch(1), g));
         t8.update(hash(ch(1), ch(2), g));
     }
@@ -1664,10 +1662,10 @@ public:
 
 // Read and return a line of input from FILE f (default stdin) up to
 // first control character except tab.  Skips CR in CR LF.
-string
+std::string
 getline (FILE* f = stdin) {
     int c;
-    string result = "";
+    std::string result = "";
     while ((c = getc(f)) != EOF && (c >= 32 || c == '\t'))
         result += char(c);
     if (c == '\r')
@@ -1714,8 +1712,8 @@ main (int argc, char** argv) {
     }
 
     // File names and sizes from input or archive
-    vector<string> filename; // List of names
-    vector<long> filesize;   // Size or -1 if error
+    std::vector<std::string> filename; // List of names
+    std::vector<long> filesize;   // Size or -1 if error
     int uncompressed_bytes = 0, compressed_bytes = 0;  // Input, output sizes
 
     // Extract files
@@ -1728,8 +1726,8 @@ main (int argc, char** argv) {
         }
 
         // Read PROGNAME " -m\r\n" at start of archive
-        string s = getline(archive);
-        if (s.substr(0, string(PROGNAME).size()) != PROGNAME) {
+        std::string s = getline(archive);
+        if (s.substr(0, std::string(PROGNAME).size()) != PROGNAME) {
             printf("Archive %s is not in KGB Archiver format\n", argv[1]);
             return 1;
         }
@@ -1744,12 +1742,12 @@ main (int argc, char** argv) {
 
         // Read "size filename" in "%d\t%s\r\n" format
         while (true) {
-            string s = getline(archive);
+            std::string s = getline(archive);
             if (s.size() > 1) {
                 filesize.push_back(atol(s.c_str()));
-                string::iterator tab = find(s.begin(), s.end(), '\t');
+                std::string::iterator tab = find(s.begin(), s.end(), '\t');
                 if (tab != s.end())
-                    filename.push_back(string(tab + 1, s.end()));
+                    filename.push_back(std::string(tab + 1, s.end()));
                 else
                     filename.push_back("");
             }
@@ -1801,8 +1799,8 @@ main (int argc, char** argv) {
                 //     if (f)
                 //         putc(c, f);
 
-                if (!((filename[i].find("../") != string::npos) ||
-                      (filename[i].find("..\\") != string::npos))) {
+                if (!((filename[i].find("../") != std::string::npos) ||
+                      (filename[i].find("..\\") != std::string::npos))) {
                     f = fopen(filename[i].c_str(), "wb");
                     if (!f)
                         printf("cannot create, skipping...\n");
@@ -1836,7 +1834,7 @@ main (int argc, char** argv) {
         if (argc > 2)
             for (int i = 2; i < argc; ++i) {//@sth: if @sth exists, compress it; if not, find file sth
                 if(argv[i][0] == '@' && argv[i][1] != '\0') {
-                    string fname = "";
+                    std::string fname = "";
                     FILE* File;
                     File = fopen(argv[i], "r");
                     if (!File) {
@@ -1849,7 +1847,7 @@ main (int argc, char** argv) {
                         }
                         else {
                             char fchar = ' ';
-                            string sWork = "";
+                            std::string sWork = "";
                             while (true) {
                                 fchar = fgetc(File);
                                 if (feof(File)) {
@@ -1882,7 +1880,7 @@ main (int argc, char** argv) {
         else {
             printf("Type filenames to compression, finish empty line:\n");
             while (true) {
-                string s = getline(stdin);
+                std::string s = getline(stdin);
                 if (s == "")
                     break;
                 else
